@@ -82,6 +82,48 @@ def generate_signals(df, ticker_name):
             
     return trades, df
 
+def calculate_metrics(trades):
+    if not trades:
+        return {
+            'total_trades': 0,
+            'win_rate': 0.0,
+            'total_pnl': 0.0,
+            'avg_win': 0.0,
+            'avg_loss': 0.0,
+            'max_drawdown': 0.0
+        }
+        
+    pnls = [t['pnl_pct'] for t in trades]
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p <= 0]
+    
+    total_trades = len(trades)
+    win_rate = len(wins) / total_trades * 100
+    total_pnl = sum(pnls)
+    avg_win = sum(wins) / len(wins) if wins else 0.0
+    avg_loss = sum(losses) / len(losses) if losses else 0.0
+    
+    # Simple max drawdown calculation based on trade sequence
+    cumulative_pnl = 0
+    peak = 0
+    max_dd = 0
+    for p in pnls:
+        cumulative_pnl += p
+        if cumulative_pnl > peak:
+            peak = cumulative_pnl
+        dd = peak - cumulative_pnl
+        if dd > max_dd:
+            max_dd = dd
+            
+    return {
+        'total_trades': total_trades,
+        'win_rate': win_rate,
+        'total_pnl': total_pnl,
+        'avg_win': avg_win,
+        'avg_loss': avg_loss,
+        'max_drawdown': max_dd
+    }
+
 def main():
     parser = argparse.ArgumentParser(description='VStop Historical Backtester')
     parser.add_argument('ticker', type=str, help='Ticker symbol (e.g., RELIANCE.NS)')
