@@ -17,10 +17,10 @@ This plan outlines the steps for implementing the historical backtesting and vis
 
 ## Phase 2: Signal Generation & Backtesting Logic
 
-- [ ] Task: Implement historical data fetching
-    - [ ] Write failing test cases for fetching historical data via `yfinance` over a specified timespan
-    - [ ] Implement data fetching logic in `backtester.py` (handle missing data edge case)
-    - [ ] Verify test passes and check coverage
+- [x] Task: Implement historical data fetching (83eefec)
+    - [x] Write failing test cases for fetching historical data via `yfinance` over a specified timespan
+    - [x] Implement data fetching logic in `backtester.py` (handle missing data edge case)
+    - [x] Verify test passes and check coverage
 - [ ] Task: Implement Entry (BUY) logic
     - [ ] Write failing test cases for BUY conditions (DIAMOND LAUNCH or SQUEEZE FIRE)
     - [ ] Implement chronological iteration and BUY signal generation in `backtester.py`
