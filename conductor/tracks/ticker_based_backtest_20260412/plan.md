@@ -25,10 +25,10 @@ This plan outlines the steps for implementing the historical backtesting and vis
     - [x] Write failing test cases for BUY conditions (DIAMOND LAUNCH or SQUEEZE FIRE)
     - [x] Implement chronological iteration and BUY signal generation in `backtester.py`
     - [x] Verify test passes and check coverage
-- [ ] Task: Implement Exit (SELL) logic
-    - [ ] Write failing test cases for SELL conditions (VStop red or close < 50 EMA)
-    - [ ] Implement SELL signal generation and trade matching in `backtester.py`
-    - [ ] Verify test passes and check coverage
+- [x] Task: Implement Exit (SELL) logic (557032c)
+    - [x] Write failing test cases for SELL conditions (VStop red or close < 50 EMA)
+    - [x] Implement SELL signal generation and trade matching in `backtester.py`
+    - [x] Verify test passes and check coverage
 - [ ] Task: Implement PnL calculation
     - [ ] Write failing test cases for Trade PnL calculations
     - [ ] Implement calculation of win/loss percentages and overall performance for executed trades
