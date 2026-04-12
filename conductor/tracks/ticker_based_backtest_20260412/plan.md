@@ -45,3 +45,13 @@ This plan outlines the steps for implementing the historical backtesting and vis
     - [ ] Run full test suite and verify >80% code coverage for `backtester.py` and `vstop_screener.py`
     - [ ] Fix any remaining linting or static analysis errors
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Reporting & CLI' (Protocol in workflow.md)
+
+## Phase 4: Visualization (TradingView-style)
+
+- [ ] Task: Implement interactive charting
+    - [ ] Install `lightweight-charts` and update `requirements.txt`
+    - [ ] Write failing test cases for chart generation (ensuring HTML file creation)
+    - [ ] Implement price and indicator plotting using `lightweight-charts`
+    - [ ] Implement Buy/Sell marker overlay logic
+    - [ ] Verify test passes and check coverage
+- [ ] Task: Conductor - User Manual Verification 'Phase 4: Visualization (TradingView-style)' (Protocol in workflow.md)

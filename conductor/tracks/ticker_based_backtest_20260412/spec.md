@@ -8,9 +8,10 @@ Create a historical backtesting and visualization module that allows the user to
 - Accept a user-provided ticker (e.g., `RELIANCE.NS`) and a historical timespan (defaulting to 5 years).
 - Define explicit Entry (Buy) and Exit (Sell) signals derived from the screener’s existing metrics.
 - Output a trade log containing entry dates, exit dates, win/loss percentages, and total overall performance to the terminal.
+- **Interactive Visualization**: Generate a TradingView-style interactive HTML chart (using `lightweight-charts`) that displays the price action, indicators (VStop, EMAs, Squeeze), and clear Buy/Sell markers for every backtested trade.
 
 **Technical Constraints**:
-- **Languages/Frameworks**: Python 3.8+, `pandas`, `numpy`, `yfinance`.
+- **Languages/Frameworks**: Python 3.8+, `pandas`, `numpy`, `yfinance`, `lightweight-charts`.
 - **Tools**: Command Line interface (`argparse`).
 - **File Paths**:
   - `backtester.py` (New script to execute the isolated test).
@@ -36,6 +37,14 @@ Create a historical backtesting and visualization module that allows the user to
 > **Input:** Trade List
 > **Logic:** Print out total number of trades, Win Rate, Average Win %, Average Loss %, and Maximum Drawdown to a clean terminal table format.
 > **Output:** Terminal readout outputting the simulation.
+
+> **Track 4:** Visualization
+> **Input:** Clean historical DataFrame + Trade List
+> **Logic:** 
+> 1. Use `lightweight-charts` to create a multi-pane chart.
+> 2. Plot price and VStop on the main pane.
+> 3. Overlay Buy (Green Up Arrow) and Sell (Red Down Arrow) markers at trade execution points.
+> 4. Export the result to a standalone HTML file for browser viewing.
 
 **Edge Case Mapping**:
 - **Missing Data**: If `yfinance` returns empty data for a ticker over the specified time range, exit gracefully with a warning.
