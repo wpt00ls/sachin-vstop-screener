@@ -37,10 +37,10 @@ This plan outlines the steps for implementing the historical backtesting and vis
 
 ## Phase 3: Reporting & CLI
 
-- [ ] Task: Implement terminal reporting
-    - [ ] Write failing test cases for terminal output formatting (trade log and summary metrics)
-    - [ ] Implement summary calculation (Win Rate, Avg Win/Loss %, Max Drawdown) and terminal printing in `backtester.py`
-    - [ ] Verify test passes and check coverage (handle "0 trades" edge case)
+- [x] Task: Implement terminal reporting (65cc574)
+    - [x] Write failing test cases for terminal output formatting (trade log and summary metrics)
+    - [x] Implement summary calculation (Win Rate, Avg Win/Loss %, Max Drawdown) and terminal printing in `backtester.py`
+    - [x] Verify test passes and check coverage (handle "0 trades" edge case)
 - [ ] Task: Integration and Final Polish
     - [ ] Run full test suite and verify >80% code coverage for `backtester.py` and `vstop_screener.py`
     - [ ] Fix any remaining linting or static analysis errors
