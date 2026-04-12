@@ -150,3 +150,36 @@ def test_box_metrics():
     # Max will be current high (360) as they are increasing.
     assert result_df['hi_52w'].iloc[260] == 360
     assert result_df['lo_52w'].iloc[260] == 99 # 260-252+1 = index 9. low[9] = 90+9 = 99.
+
+def test_vstop_calculation():
+    # Create a 60-day dummy dataset
+    dates = pd.date_range(start="2023-01-01", periods=60)
+    # Start with uptrend, then sharp drop
+    close = [100 + i for i in range(40)] + [140 - (i-40)*5 for i in range(40, 60)]
+    high = [c + 2 for c in close]
+    low = [c - 2 for c in close]
+    
+    data = {
+        'high': high,
+        'low': low,
+        'close': close,
+        'volume': [1000] * 60
+    }
+    df = pd.DataFrame(data, index=dates)
+    
+    # Dummy benchmark data
+    bench_data = {'close': [100] * 60}
+    bench_df = pd.DataFrame(bench_data, index=dates)
+    
+    # Calculate indicators
+    result_df = calculate_master_logic(df.copy(), bench_df)
+    
+    # Verify VSTOP columns exist
+    assert 'vstop' in result_df.columns
+    assert 'trend' in result_df.columns
+    
+    # Check trend at index 30 (should be uptrend)
+    assert result_df['trend'].iloc[30] == True
+    
+    # Check trend reversal at end (should be downtrend)
+    assert result_df['trend'].iloc[59] == False
