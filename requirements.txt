@@ -4,4 +4,4 @@ yfinance
 pandas
 numpy
 xlsxwriter
-lightweight-charts
+plotly

@@ -4,7 +4,8 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 from vstop_screener import calculate_master_logic, calculate_status, BENCHMARK
-from lightweight_charts import Chart
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 def fetch_data(ticker, years=5):
     end_date = datetime.now()
@@ -126,54 +127,53 @@ def calculate_metrics(trades):
     }
 
 def create_chart(df, trades, ticker):
-    chart = Chart(toolbox=True)
-    chart.legend(visible=True)
+    # Filter out early data with NaN indicators for cleaner chart
+    df = df.dropna(subset=['ema200', 'vstop', 'rsi']).copy()
     
-    # Standardize df for lightweight-charts
-    viz_df = df.copy().reset_index()
-    viz_df.columns = [str(c).lower() for c in viz_df.columns]
-    if 'date' not in viz_df.columns and 'index' in viz_df.columns:
-        viz_df = viz_df.rename(columns={'index': 'date'})
-        
-    # 1. Main Pane: Price Action
-    chart.set(viz_df)
+    filename = f"backtest_{ticker.replace('.NS', '')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
     
+    # Create multi-pane layout
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
+                        vertical_spacing=0.05, 
+                        subplot_titles=(f'{ticker} Price Action', 'Volume', 'Squeeze Indicators'),
+                        row_heights=[0.6, 0.2, 0.2])
+
+    # 1. Main Pane: Candlesticks
+    fig.add_trace(go.Candlestick(x=df.index,
+                open=df['open'], high=df['high'],
+                low=df['low'], close=df['close'],
+                name='Price'), row=1, col=1)
+
     # 2. Indicators on Main Pane
-    vstop_line = chart.create_line('VStop', color='#2196F3', width=2)
-    vstop_line.set(viz_df[['date', 'vstop']].dropna().rename(columns={'vstop': 'VStop'}))
-    
-    ema50_line = chart.create_line('EMA 50', color='#FF9800', width=1)
-    ema50_line.set(viz_df[['date', 'ema50']].dropna().rename(columns={'ema50': 'EMA 50'}))
-    
-    ema200_line = chart.create_line('EMA 200', color='#9C27B0', width=1)
-    ema200_line.set(viz_df[['date', 'ema200']].dropna().rename(columns={'ema200': 'EMA 200'}))
-    
+    fig.add_trace(go.Scatter(x=df.index, y=df['vstop'], name='VStop', line=dict(color='blue', width=2)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df.index, y=df['ema50'], name='EMA 50', line=dict(color='orange', width=1)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df.index, y=df['ema200'], name='EMA 200', line=dict(color='purple', width=1)), row=1, col=1)
+
     # 3. Buy/Sell Markers
     for t in trades:
-        chart.marker(text='BUY', position='belowBar', shape='arrowUp', color='#26a69a', time=t['entry_date'])
-        chart.marker(text=f"SELL ({t['exit_reason']})", position='aboveBar', shape='arrowDown', color='#ef5350', time=t['exit_date'])
-        
-    # 4. Squeeze Indicators on a Subchart
-    try:
-        sqz_pane = chart.create_subchart(height=0.2)
-        viz_df['sqz_std_val'] = viz_df['sqz_std'].astype(int)
-        viz_df['sqz_tight_val'] = viz_df['sqz_tight'].astype(int) * 2
-        viz_df['sqz_xtra_val'] = viz_df['sqz_xtra'].astype(int) * 3
-        
-        sqz_pane.create_line('Standard', color='gray', width=1).set(
-            viz_df[['date', 'sqz_std_val']].rename(columns={'sqz_std_val': 'Standard'})
-        )
-        sqz_pane.create_line('Tight', color='orange', width=1).set(
-            viz_df[['date', 'sqz_tight_val']].rename(columns={'sqz_tight_val': 'Tight'})
-        )
-        sqz_pane.create_line('Extra Tight', color='red', width=1).set(
-            viz_df[['date', 'sqz_xtra_val']].rename(columns={'sqz_xtra_val': 'Extra Tight'})
-        )
-    except Exception as e:
-        print(f"⚠️ Could not create squeeze subplot: {e}")
+        # Entry
+        fig.add_annotation(x=t['entry_date'], y=t['entry_price'],
+                    text="BUY", showarrow=True, arrowhead=1,
+                    ax=0, ay=20, bgcolor="green", font=dict(color="white"), row=1, col=1)
+        # Exit
+        fig.add_annotation(x=t['exit_date'], y=t['exit_price'],
+                    text=f"SELL ({t['exit_reason']})", showarrow=True, arrowhead=1,
+                    ax=0, ay=-20, bgcolor="red", font=dict(color="white"), row=1, col=1)
 
-    print("📈 Opening interactive chart...")
-    chart.show()
+    # 4. Volume Pane
+    fig.add_trace(go.Bar(x=df.index, y=df['volume'], name='Volume', marker_color='gray'), row=2, col=1)
+
+    # 5. Squeeze Pane (as binary states)
+    fig.add_trace(go.Scatter(x=df.index, y=df['sqz_std'].astype(int), name='Sqz Std', line=dict(color='gray')), row=3, col=1)
+    fig.add_trace(go.Scatter(x=df.index, y=df['sqz_tight'].astype(int)*2, name='Sqz Tight', line=dict(color='orange')), row=3, col=1)
+    fig.add_trace(go.Scatter(x=df.index, y=df['sqz_xtra'].astype(int)*3, name='Sqz Extra', line=dict(color='red')), row=3, col=1)
+
+    # Layout tweaks
+    fig.update_layout(height=1000, title_text=f"VStop Backtest: {ticker}", showlegend=True,
+                      xaxis_rangeslider_visible=False)
+    
+    fig.write_html(filename)
+    print(f"📈 Chart saved to {filename}. Open this file in your browser to view.")
     return True
 
 def print_report(ticker, trades, metrics):
