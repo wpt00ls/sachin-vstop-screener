@@ -22,7 +22,7 @@ This plan outlines the steps for implementing the historical backtesting and vis
     - [x] Implement data fetching logic in `backtester.py` (handle missing data edge case)
     - [x] Verify test passes and check coverage
 - [x] Task: Implement Entry (BUY) logic (05bb859)
-    - [x] Write failing test cases for BUY conditions (DIAMOND LAUNCH or SQUEEZE FIRE)
+    - [x] Write failing test cases for BUY conditions (DIAMOND LAUNCH)
     - [x] Implement chronological iteration and BUY signal generation in `backtester.py`
     - [x] Verify test passes and check coverage
 - [x] Task: Implement Exit (SELL) logic (557032c)
@@ -33,7 +33,7 @@ This plan outlines the steps for implementing the historical backtesting and vis
     - [x] Write failing test cases for Trade PnL calculations
     - [x] Implement calculation of win/loss percentages and overall performance for executed trades
     - [x] Verify test passes and check coverage
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Signal Generation & Backtesting Logic' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Signal Generation & Backtesting Logic' (Protocol in workflow.md) [checkpoint: c6f1ecc]
 
 ## Phase 3: Reporting & CLI
 
