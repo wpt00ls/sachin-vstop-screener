@@ -8,11 +8,11 @@ This plan outlines the steps for implementing the historical backtesting and vis
     - [x] Write failing test cases to ensure `calculate_master_logic` can be imported and executed independently
     - [x] Implement/Refactor `calculate_master_logic` in `vstop_screener.py` (if needed) for clean import
     - [x] Verify test passes and check coverage
-- [ ] Task: Set up `backtester.py` scaffolding
-    - [ ] Create `backtester.py` with basic `argparse` CLI setup
-    - [ ] Write failing test cases for CLI argument parsing (ticker, timespan)
-    - [ ] Implement CLI argument parsing in `backtester.py`
-    - [ ] Verify test passes and check coverage
+- [x] Task: Set up `backtester.py` scaffolding (8a5c550)
+    - [x] Create `backtester.py` with basic `argparse` CLI setup
+    - [x] Write failing test cases for CLI argument parsing (ticker, timespan)
+    - [x] Implement CLI argument parsing in `backtester.py`
+    - [x] Verify test passes and check coverage
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Logic Consolidation' (Protocol in workflow.md)
 
 ## Phase 2: Signal Generation & Backtesting Logic
