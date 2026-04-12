@@ -21,10 +21,10 @@ This plan outlines the steps for implementing the historical backtesting and vis
     - [x] Write failing test cases for fetching historical data via `yfinance` over a specified timespan
     - [x] Implement data fetching logic in `backtester.py` (handle missing data edge case)
     - [x] Verify test passes and check coverage
-- [ ] Task: Implement Entry (BUY) logic
-    - [ ] Write failing test cases for BUY conditions (DIAMOND LAUNCH or SQUEEZE FIRE)
-    - [ ] Implement chronological iteration and BUY signal generation in `backtester.py`
-    - [ ] Verify test passes and check coverage
+- [x] Task: Implement Entry (BUY) logic (05bb859)
+    - [x] Write failing test cases for BUY conditions (DIAMOND LAUNCH or SQUEEZE FIRE)
+    - [x] Implement chronological iteration and BUY signal generation in `backtester.py`
+    - [x] Verify test passes and check coverage
 - [ ] Task: Implement Exit (SELL) logic
     - [ ] Write failing test cases for SELL conditions (VStop red or close < 50 EMA)
     - [ ] Implement SELL signal generation and trade matching in `backtester.py`
