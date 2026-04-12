@@ -2,7 +2,6 @@ import argparse
 import sys
 import yfinance as yf
 import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
 from vstop_screener import calculate_master_logic, calculate_status, BENCHMARK
 
@@ -58,7 +57,7 @@ def generate_signals(df, ticker_name):
         else:
             # SELL Condition (Trend Failure)
             exit_reason = None
-            if row['trend'] == False:
+            if not row['trend']:
                 exit_reason = "VStop Red"
             elif 'ema50' in row and row['close'] < row['ema50']:
                 exit_reason = "Below EMA 50"

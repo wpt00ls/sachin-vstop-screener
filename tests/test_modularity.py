@@ -1,6 +1,5 @@
 import pytest
 import pandas as pd
-import numpy as np
 from vstop_screener import calculate_master_logic
 
 def test_calculate_master_logic_custom_params():

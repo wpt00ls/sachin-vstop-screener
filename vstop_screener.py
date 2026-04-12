@@ -21,7 +21,7 @@ def get_nifty500():
     try:
         df = pd.read_csv(url)
         return [f"{s}.NS" for s in df['Symbol'].tolist()]
-    except:
+    except Exception:
         # Fallback list if NSE URL is unreachable
         return ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "TATASTEEL.NS"]
 
@@ -80,17 +80,21 @@ def calculate_master_logic(df, bench_df, vstop_mult=VSTOP_MULT, atr_period=ATR_P
         df['vstop'], df['trend'] = stops, trends
         return df
         
-    uptrend, max_val, min_val, stop = True, highs[start_idx], lows[start_idx], lows[start_idx]
+    uptrend, max_val, stop = True, highs[start_idx], lows[start_idx]
     
     for i in range(start_idx, len(df)):
         src, atr_m = closes[i], atrs[i] * vstop_mult
-        if np.isnan(atr_m): continue
+        if np.isnan(atr_m):
+            continue
         if uptrend:
-            max_val = max(max_val, highs[i]); stop = max(stop, max_val - atr_m)
-            if src < stop: uptrend, min_val, stop = False, lows[i], lows[i] + atr_m
+            max_val = max(max_val, highs[i])
+            stop = max(stop, max_val - atr_m)
+            if src < stop:
+                uptrend, stop = False, lows[i] + atr_m
         else:
-            min_val = min(min_val, lows[i]); stop = min(stop, min_val + atr_m)
-            if src > stop: uptrend, max_val, stop = True, highs[i], highs[i] - atr_m
+            stop = min(stop, lows[i] + atr_m)
+            if src > stop:
+                uptrend, max_val, stop = True, highs[i], highs[i] - atr_m
         stops[i], trends[i] = stop, uptrend
         
     df['vstop'], df['trend'] = stops, trends
@@ -99,14 +103,17 @@ def calculate_master_logic(df, bench_df, vstop_mult=VSTOP_MULT, atr_period=ATR_P
 def calculate_status(row, prev_row, vol_mult=VOL_MULT, ema_periods=EMA_PERIODS):
     # Squeeze Label Assignment
     sqz_label = "None"
-    if row['sqz_xtra']: sqz_label = "EXTRA TIGHT"
-    elif row['sqz_tight']: sqz_label = "TIGHT"
-    elif row['sqz_std']: sqz_label = "Standard"
-    elif prev_row is not None and prev_row['sqz_std'] and not row['sqz_std']: sqz_label = "FIRED 🚀"
+    if row['sqz_xtra']:
+        sqz_label = "EXTRA TIGHT"
+    elif row['sqz_tight']:
+        sqz_label = "TIGHT"
+    elif row['sqz_std']:
+        sqz_label = "Standard"
+    elif prev_row is not None and prev_row['sqz_std'] and not row['sqz_std']:
+        sqz_label = "FIRED 🚀"
 
     # Confluence Check Results
-    c1 = row['trend'] == True
-    c2 = prev_row is not None and row['low'] > prev_row['low']
+    c1 = row['trend']
     c3 = row['close'] > row['box_high']
     c4 = row['volume'] > (row['vol_avg'] * vol_mult)
     ema_check = all(row['close'] > row[f'ema{p}'] for p in ema_periods)
@@ -142,7 +149,7 @@ def audit_stock(ticker, full_data, bench_df):
         status, sqz_label = calculate_status(today, yesterday)
 
         # Confluence results for display
-        c1 = today['trend'] == True
+        c1 = today['trend']
         c2 = today['low'] > yesterday['low']
         c3 = today['close'] > today['box_high']
         c4 = today['volume'] > (today['vol_avg'] * VOL_MULT)
@@ -169,7 +176,7 @@ def audit_stock(ticker, full_data, bench_df):
             "EMA 200 Slope": round(today.get('ema200_slope', 0), 3),
             "Chart Link": f"https://www.tradingview.com/chart/?symbol=NSE:{ticker.replace('.NS', '')}"
         }
-    except Exception as e:
+    except Exception:
         return None
 
 # ==========================================
@@ -179,7 +186,7 @@ def main():
     tickers = get_nifty500()
     start_pt = (datetime.now() - timedelta(days=DATA_LOOKBACK)).strftime("%Y-%m-%d")
 
-    print(f"📡 Downloading Nifty 500 Data and Benchmark...")
+    print("📡 Downloading Nifty 500 Data and Benchmark...")
     bench = yf.download(BENCHMARK, start=start_pt, auto_adjust=False, progress=False)
     if isinstance(bench.columns, pd.MultiIndex): bench.columns = bench.columns.get_level_values(0)
     bench.columns = [str(c).lower() for c in bench.columns]

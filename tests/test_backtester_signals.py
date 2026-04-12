@@ -1,6 +1,5 @@
 import pytest
 import pandas as pd
-import numpy as np
 from unittest.mock import patch
 from backtester import generate_signals
 
@@ -29,7 +28,7 @@ def test_generate_signals_buy_logic():
                 # Mock status to be Consolidating except for one index
                 def status_side_effect(row, prev_row):
                     if row.name == dates[50]:
-                        return "🚀 SQUEEZE FIRE", "FIRED 🚀"
+                        return "💎 DIAMOND LAUNCH", "None"
                     return "Consolidating", "None"
                 
                 mock_status.side_effect = status_side_effect
@@ -65,7 +64,7 @@ def test_generate_signals_sell_logic():
                 # BUY at index 10, SELL at index 20 (trend flip)
                 def status_side_effect(row, prev_row):
                     if row.name == dates[10]:
-                        return "🚀 SQUEEZE FIRE", "FIRED 🚀"
+                        return "💎 DIAMOND LAUNCH", "None"
                     return "Consolidating", "None"
                 
                 mock_status.side_effect = status_side_effect

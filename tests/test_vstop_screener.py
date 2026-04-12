@@ -106,9 +106,9 @@ def test_squeeze_logic():
     # sma + 1.5*atr = 100 + 6 = 106
     # bb_up (100) < 106 and bb_low (100) > 94 -> sqz_std should be True
     idx = 29
-    assert result_df['sqz_std'].iloc[idx] == True
-    assert result_df['sqz_tight'].iloc[idx] == True
-    assert result_df['sqz_xtra'].iloc[idx] == True
+    assert result_df['sqz_std'].iloc[idx]
+    assert result_df['sqz_tight'].iloc[idx]
+    assert result_df['sqz_xtra'].iloc[idx]
 
 def test_box_metrics():
     # Create a 300-day dummy dataset (for 52-week/252-day metrics)
@@ -180,10 +180,10 @@ def test_vstop_calculation():
     assert 'trend' in result_df.columns
     
     # Check trend at index 30 (should be uptrend)
-    assert result_df['trend'].iloc[30] == True
+    assert result_df['trend'].iloc[30]
     
     # Check trend reversal at end (should be downtrend)
-    assert result_df['trend'].iloc[59] == False
+    assert not result_df['trend'].iloc[59]
 
 def test_get_nifty500():
     # Mocking pandas.read_csv to return a simple dataframe
