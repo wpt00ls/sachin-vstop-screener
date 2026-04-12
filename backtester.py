@@ -56,8 +56,29 @@ def generate_signals(df, ticker_name):
                 print(f"  🟢 BUY at {entry_price:.2f} on {entry_date.date()} (Status: {status})")
         else:
             # SELL Condition (Trend Failure)
-            # Logic will be implemented in the next task
-            pass
+            exit_reason = None
+            if row['trend'] == False:
+                exit_reason = "VStop Red"
+            elif 'ema50' in row and row['close'] < row['ema50']:
+                exit_reason = "Below EMA 50"
+                
+            if exit_reason:
+                exit_price = row['close']
+                exit_date = df.index[i]
+                pnl_pct = (exit_price - entry_price) / entry_price * 100
+                
+                trades.append({
+                    'ticker': ticker_name,
+                    'entry_date': entry_date,
+                    'entry_price': entry_price,
+                    'exit_date': exit_date,
+                    'exit_price': exit_price,
+                    'pnl_pct': pnl_pct,
+                    'exit_reason': exit_reason
+                })
+                
+                print(f"  🔴 SELL at {exit_price:.2f} on {exit_date.date()} (Reason: {exit_reason}) | PnL: {pnl_pct:.2f}%")
+                in_position = False
             
     return trades, df
 
