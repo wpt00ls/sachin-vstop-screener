@@ -41,9 +41,9 @@ This plan outlines the steps for implementing the historical backtesting and vis
     - [x] Write failing test cases for terminal output formatting (trade log and summary metrics)
     - [x] Implement summary calculation (Win Rate, Avg Win/Loss %, Max Drawdown) and terminal printing in `backtester.py`
     - [x] Verify test passes and check coverage (handle "0 trades" edge case)
-- [ ] Task: Integration and Final Polish
-    - [ ] Run full test suite and verify >80% code coverage for `backtester.py` and `vstop_screener.py`
-    - [ ] Fix any remaining linting or static analysis errors
+- [x] Task: Integration and Final Polish (4a9061d)
+    - [x] Run full test suite and verify >80% code coverage for `backtester.py` and `vstop_screener.py`
+    - [x] Fix any remaining linting or static analysis errors
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Reporting & CLI' (Protocol in workflow.md)
 
 ## Phase 4: Visualization (TradingView-style)
