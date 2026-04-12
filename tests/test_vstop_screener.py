@@ -73,3 +73,38 @@ def test_ema_calculation():
     expected_slope = (ema200_curr - ema200_prev) / ema200_prev * 100
     
     assert pytest.approx(result_df['ema200_slope'].iloc[idx], 0.0001) == expected_slope
+
+def test_squeeze_logic():
+    # Create a 30-day dummy dataset
+    dates = pd.date_range(start="2023-01-01", periods=30)
+    data = {
+        'high': [102] * 30,
+        'low': [98] * 30,
+        'close': [100] * 30,
+        'volume': [1000] * 30
+    }
+    df = pd.DataFrame(data, index=dates)
+    
+    # Dummy benchmark data
+    bench_data = {'close': [100] * 30}
+    bench_df = pd.DataFrame(bench_data, index=dates)
+    
+    # Calculate indicators
+    result_df = calculate_master_logic(df.copy(), bench_df)
+    
+    # Verify Squeeze columns exist
+    assert 'bb_up' in result_df.columns
+    assert 'bb_low' in result_df.columns
+    assert 'sqz_std' in result_df.columns
+    assert 'sqz_tight' in result_df.columns
+    assert 'sqz_xtra' in result_df.columns
+    
+    # In this case, with zero volatility (close=100 constantly),
+    # std=0, so bb_up = sma = 100, bb_low = sma = 100
+    # high-low = 4, so tr=4, atr_20=4
+    # sma + 1.5*atr = 100 + 6 = 106
+    # bb_up (100) < 106 and bb_low (100) > 94 -> sqz_std should be True
+    idx = 29
+    assert result_df['sqz_std'].iloc[idx] == True
+    assert result_df['sqz_tight'].iloc[idx] == True
+    assert result_df['sqz_xtra'].iloc[idx] == True
