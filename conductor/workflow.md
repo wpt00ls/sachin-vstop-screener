@@ -1,5 +1,12 @@
 # Project Workflow
 
+## Skills
+
+- Caveman : To reduce output tokens follow the [caveman workflow](../skills/caveman/index.md)
+- Python TDD : Test driven development follow the [python tdd workflow](../skills/python-tdd/index.md)
+- Git flow: Follow the [git flow](../skills/git-flow/index.md) for implmenting new features and bug fixes
+- Use agentic skill developer to create new skills using the [agentic skill developer workflow](../skills/agentic-skill-developer/index.md)
+
 ## Guiding Principles
 
 1. **The Plan is the Source of Truth:** All work must be tracked in `plan.md`
@@ -17,9 +24,13 @@ All tasks follow a strict lifecycle:
 
 1. **Select Task:** Choose the next available task from `plan.md` in sequential order
 
-2. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`
+2. **Use Caveman:** Use the caveman skill to reduce output tokens
 
-3. **Write Failing Tests (Red Phase):**
+3. Use git flow to create a new branch for the task
+
+4. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`
+
+5. **Write Failing Tests (Red Phase):**
    - Create a new test file for the feature or bug fix.
    - Write one or more unit tests that clearly define the expected behavior and acceptance criteria for the task.
    - **CRITICAL:** Run the tests and confirm that they fail as expected. This is the "Red" phase of TDD. Do not proceed until you have failing tests.
@@ -43,6 +54,7 @@ All tasks follow a strict lifecycle:
    - Update `tech-stack.md` with new design
    - Add dated note explaining the change
    - Resume implementation
+   - update the `product.md` file to reflect the changes and relevant to the state of the codebase
 
 8. **Commit Code Changes:**
    - Stage all code changes related to the task.
@@ -161,9 +173,11 @@ Before marking any task complete, verify:
 
 ### Daily Development
 ```bash
-# Example: Commands for common daily tasks (e.g., start dev server, run tests, lint, format)
-# e.g., for a Node.js project: npm run dev, npm test, npm run lint
-# e.g., for a Go project: go run main.go, go test ./..., go fmt ./...
+# Run all tests
+pytest
+
+# Run tests with coverage
+pytest --cov=vstop_screener --cov-report=term-missing
 ```
 
 ### Before Committing

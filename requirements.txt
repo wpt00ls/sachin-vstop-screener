@@ -1,0 +1,6 @@
+pytest
+pytest-cov
+yfinance
+pandas
+numpy
+xlsxwriter
