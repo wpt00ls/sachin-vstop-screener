@@ -41,3 +41,35 @@ def test_rsi_calculation():
     assert not np.isnan(rsi_val)
     # We expect roughly 86.37 based on manual calculation above
     assert pytest.approx(rsi_val, 0.01) == 86.37
+
+def test_ema_calculation():
+    # Create a 250-day dummy dataset (to cover EMA 200 + 20 day slope)
+    dates = pd.date_range(start="2023-01-01", periods=250)
+    data = {
+        'high': [100] * 250,
+        'low': [90] * 250,
+        'close': [100 + i for i in range(250)], # Steadily increasing
+        'volume': [1000] * 250
+    }
+    df = pd.DataFrame(data, index=dates)
+    
+    # Dummy benchmark data
+    bench_data = {'close': [100] * 250}
+    bench_df = pd.DataFrame(bench_data, index=dates)
+    
+    # Calculate indicators
+    result_df = calculate_master_logic(df.copy(), bench_df)
+    
+    # Verify columns exist
+    assert 'ema50' in result_df.columns
+    assert 'ema200' in result_df.columns
+    assert 'ema200_slope' in result_df.columns
+    
+    # Verify EMA 200 slope logic
+    # Slope = (ema200 - ema200_shift20) / ema200_shift20 * 100
+    idx = 249
+    ema200_curr = result_df['ema200'].iloc[idx]
+    ema200_prev = result_df['ema200'].iloc[idx-20]
+    expected_slope = (ema200_curr - ema200_prev) / ema200_prev * 100
+    
+    assert pytest.approx(result_df['ema200_slope'].iloc[idx], 0.0001) == expected_slope
