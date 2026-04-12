@@ -12,6 +12,7 @@
 
 ## Reporting & Output
 - **XlsxWriter**: Employed as the engine for generating the formatted Excel spreadsheet with conditional formatting.
+- **Plotly**: Used for generating interactive HTML charts for the historical backtester.
 
 ## Execution Model
 - **Concurrent.futures (ThreadPoolExecutor)**: Used to speed up the data fetching and auditing process by running ticker-level scans in parallel.

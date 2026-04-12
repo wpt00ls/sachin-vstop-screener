@@ -1,5 +1,5 @@
 # Initial Concept
-A Python-based technical stock screener for the NSE 500 index that calculates advanced momentum, volatility, and trend indicators to identify high-probability trading setups.
+A Python-based technical stock screener and backtester for the NSE 500 index that calculates advanced momentum, volatility, and trend indicators to identify and validate high-probability trading setups.
 
 # Product Guide
 
@@ -22,6 +22,7 @@ To provide a robust, automated tool for quantitative traders and investors to ra
    - Box Breakout metrics and 52-week High/Lows
 3. **Confluence Logic & Ranking**: Evaluates stocks against multiple conditions (trend, higher lows, volume, moving average alignment) to categorize them into actionable statuses like "DIAMOND LAUNCH", "SQUEEZE FIRE", "COILING", or "TRENDING".
 4. **Excel Reporting**: Exports the audited results into a formatted Excel spreadsheet with conditional formatting for easy visual scanning of the daily setups.
+5. **Historical Backtesting**: Provides a CLI tool to simulate trading strategies on individual tickers using historical data, outputting performance metrics and interactive charts.
 
 ## Success Metrics
 - Fast, reliable execution over the entire NSE 500 universe within a single run.
