@@ -15,3 +15,6 @@
 
 ## Execution Model
 - **Concurrent.futures (ThreadPoolExecutor)**: Used to speed up the data fetching and auditing process by running ticker-level scans in parallel.
+## Testing Framework
+- **Pytest**: Used for unit and integration testing of core indicators and execution logic.
+- **Pytest-cov**: Utilized for monitoring and ensuring high code coverage (>80%).

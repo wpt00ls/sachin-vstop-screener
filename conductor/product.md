@@ -26,4 +26,4 @@ To provide a robust, automated tool for quantitative traders and investors to ra
 ## Success Metrics
 - Fast, reliable execution over the entire NSE 500 universe within a single run.
 - Accurate calculation of technical indicators matching standard charting platforms.
-- Clean, readable, and actionable Excel output generated daily.
+- Clean, readable, and actionable Excel output generated daily.- **Tested Reliability**: Maintenance of high code coverage (>80%) for all core indicator logic.
