@@ -24,10 +24,10 @@ This plan outlines the steps for implementing unit tests for the core technical 
     - [x] Write failing test cases for Bollinger Bands, Keltner Channels, and Squeeze labels
     - [x] Implement/Refactor Squeeze logic to ensure it passes
     - [x] Verify test passes and check coverage
-- [ ] Task: Implement tests for Box and 52-Week metrics
-    - [ ] Write failing test cases for Box High/Low and 52-Week High/Low
-    - [ ] Implement/Refactor Box logic to ensure it passes
-    - [ ] Verify test passes and check coverage
+- [x] Task: Implement tests for Box and 52-Week metrics dfa8f16
+    - [x] Write failing test cases for Box High/Low and 52-Week High/Low
+    - [x] Implement/Refactor Box logic to ensure it passes
+    - [x] Verify test passes and check coverage
 - [ ] Task: Implement tests for Recursive VSTOP
     - [ ] Write failing test case for VSTOP (Uptrend/Downtrend shifts)
     - [ ] Implement/Refactor VSTOP logic to ensure it passes
