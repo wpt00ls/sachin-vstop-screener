@@ -25,20 +25,23 @@ def get_nifty500():
         # Fallback list if NSE URL is unreachable
         return ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "TATASTEEL.NS"]
 
-def calculate_master_logic(df, bench_df):
+def calculate_master_logic(df, bench_df, vstop_mult=VSTOP_MULT, atr_period=ATR_PERIOD, ema_periods=EMA_PERIODS, box_lookback=BOX_LOOKBACK, rsi_period=RSI_PERIOD):
     df.columns = [str(c).lower() for c in df.columns]
     
     # --- 1. RSI & EMAs ---
     delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=RSI_PERIOD).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=RSI_PERIOD).mean()
+    gain = (delta.where(delta > 0, 0)).rolling(window=rsi_period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=rsi_period).mean()
     df['rsi'] = 100 - (100 / (1 + (gain / loss)))
 
-    for p in EMA_PERIODS:
+    for p in ema_periods:
         df[f'ema{p}'] = df['close'].ewm(span=p, adjust=False).mean()
     
     # EMA 200 Slope (Performance over last 20 trading days)
-    df['ema200_slope'] = (df['ema200'] - df['ema200'].shift(20)) / df['ema200'].shift(20) * 100
+    # Note: We use 200 explicitly here as per original logic, but we could make it dynamic if needed.
+    # For parity, we'll keep it as is or check if 200 is in ema_periods.
+    if 200 in ema_periods:
+        df['ema200_slope'] = (df['ema200'] - df['ema200'].shift(20)) / df['ema200'].shift(20) * 100
         
     df['vol_avg'] = df['volume'].rolling(20).mean()
     df['rs_ratio'] = df['close'] / bench_df['close'].reindex(df.index).ffill()
@@ -51,27 +54,36 @@ def calculate_master_logic(df, bench_df):
     df['bb_low'] = sma - (2.0 * std)
     
     tr = pd.concat([df['high']-df['low'], abs(df['high']-df['close'].shift(1)), abs(df['low']-df['close'].shift(1))], axis=1).max(axis=1)
-    atr_20 = tr.rolling(20).mean()
+    atr_val = tr.rolling(20).mean() # Using 20 as period for ATR in squeeze
     
     # Standard (1.5x), Tight (1.2x), Extra Tight (1.0x ATR)
-    df['sqz_std'] = (df['bb_up'] < (sma + (1.5 * atr_20))) & (df['bb_low'] > (sma - (1.5 * atr_20)))
-    df['sqz_tight'] = (df['bb_up'] < (sma + (1.2 * atr_20))) & (df['bb_low'] > (sma - (1.2 * atr_20)))
-    df['sqz_xtra'] = (df['bb_up'] < (sma + (1.0 * atr_20))) & (df['bb_low'] > (sma - (1.0 * atr_20)))
+    df['sqz_std'] = (df['bb_up'] < (sma + (1.5 * atr_val))) & (df['bb_low'] > (sma - (1.5 * atr_val)))
+    df['sqz_tight'] = (df['bb_up'] < (sma + (1.2 * atr_val))) & (df['bb_low'] > (sma - (1.2 * atr_val)))
+    df['sqz_xtra'] = (df['bb_up'] < (sma + (1.0 * atr_val))) & (df['bb_low'] > (sma - (1.0 * atr_val)))
 
     # --- 3. Box & 52-Week Metrics ---
-    df['box_high'] = df['high'].shift(1).rolling(window=BOX_LOOKBACK).max()
-    df['box_low'] = df['low'].shift(1).rolling(window=BOX_LOOKBACK).min()
+    df['box_high'] = df['high'].shift(1).rolling(window=box_lookback).max()
+    df['box_low'] = df['low'].shift(1).rolling(window=box_lookback).min()
     df['box_width_pct'] = ((df['box_high'] - df['box_low']) / df['box_low']) * 100
     df['hi_52w'] = df['high'].rolling(window=252).max()
     df['lo_52w'] = df['low'].rolling(window=252).min()
     
     # --- 4. Recursive Vstop ---
-    closes, highs, lows, atrs = df['close'].values, df['high'].values, df['low'].values, atr_20.values
+    # We use the provided atr_period for VStop
+    atr_vstop = tr.rolling(atr_period).mean()
+    closes, highs, lows, atrs = df['close'].values, df['high'].values, df['low'].values, atr_vstop.values
     stops, trends = [np.nan]*len(df), [True]*len(df)
-    uptrend, max_val, min_val, stop = True, highs[ATR_PERIOD], lows[ATR_PERIOD], lows[ATR_PERIOD]
     
-    for i in range(ATR_PERIOD, len(df)):
-        src, atr_m = closes[i], atrs[i] * VSTOP_MULT
+    # Initialize with first valid ATR index
+    start_idx = atr_period
+    if len(df) <= start_idx:
+        df['vstop'], df['trend'] = stops, trends
+        return df
+        
+    uptrend, max_val, min_val, stop = True, highs[start_idx], lows[start_idx], lows[start_idx]
+    
+    for i in range(start_idx, len(df)):
+        src, atr_m = closes[i], atrs[i] * vstop_mult
         if np.isnan(atr_m): continue
         if uptrend:
             max_val = max(max_val, highs[i]); stop = max(stop, max_val - atr_m)
@@ -84,6 +96,38 @@ def calculate_master_logic(df, bench_df):
     df['vstop'], df['trend'] = stops, trends
     return df
 
+def calculate_status(row, prev_row, vol_mult=VOL_MULT, ema_periods=EMA_PERIODS):
+    # Squeeze Label Assignment
+    sqz_label = "None"
+    if row['sqz_xtra']: sqz_label = "EXTRA TIGHT"
+    elif row['sqz_tight']: sqz_label = "TIGHT"
+    elif row['sqz_std']: sqz_label = "Standard"
+    elif prev_row is not None and prev_row['sqz_std'] and not row['sqz_std']: sqz_label = "FIRED 🚀"
+
+    # Confluence Check Results
+    c1 = row['trend'] == True
+    c2 = prev_row is not None and row['low'] > prev_row['low']
+    c3 = row['close'] > row['box_high']
+    c4 = row['volume'] > (row['vol_avg'] * vol_mult)
+    ema_check = all(row['close'] > row[f'ema{p}'] for p in ema_periods)
+    rs_check = (row['rs_ratio'] > row['rs_ma'])
+    # Check if ema200_slope exists in row
+    slope_up = row.get('ema200_slope', 0) > 0 if 'ema200_slope' in row else False
+
+    # --- STATUS LOGIC (LIFECYCLE RANKING) ---
+    if sqz_label == "FIRED 🚀" and c3 and c4 and ema_check and rs_check:
+        status = "💎 DIAMOND LAUNCH"
+    elif sqz_label == "FIRED 🚀":
+        status = "🚀 SQUEEZE FIRE"
+    elif (sqz_label in ["TIGHT", "EXTRA TIGHT"]) and row['box_width_pct'] < 5:
+        status = "🌀 COILING"
+    elif c1 and rs_check and slope_up:
+        status = "📈 TRENDING"
+    else:
+        status = "Consolidating"
+        
+    return status, sqz_label
+
 def audit_stock(ticker, full_data, bench_df):
     try:
         if ticker not in full_data.columns.get_level_values(0): return None
@@ -95,33 +139,14 @@ def audit_stock(ticker, full_data, bench_df):
         week_ago = df.iloc[-5] if len(df) > 5 else df.iloc[0]
         month_ago = df.iloc[-21] if len(df) > 21 else df.iloc[0]
         
-        # Squeeze Label Assignment
-        sqz_label = "None"
-        if today['sqz_xtra']: sqz_label = "EXTRA TIGHT"
-        elif today['sqz_tight']: sqz_label = "TIGHT"
-        elif today['sqz_std']: sqz_label = "Standard"
-        elif yesterday['sqz_std'] and not today['sqz_std']: sqz_label = "FIRED 🚀"
+        status, sqz_label = calculate_status(today, yesterday)
 
-        # Confluence Check Results
+        # Confluence results for display
         c1 = today['trend'] == True
         c2 = today['low'] > yesterday['low']
         c3 = today['close'] > today['box_high']
         c4 = today['volume'] > (today['vol_avg'] * VOL_MULT)
         ema_check = all(today['close'] > today[f'ema{p}'] for p in EMA_PERIODS)
-        rs_check = (today['rs_ratio'] > today['rs_ma'])
-        slope_up = today['ema200_slope'] > 0
-
-        # --- STATUS LOGIC (LIFECYCLE RANKING) ---
-        if sqz_label == "FIRED 🚀" and c3 and c4 and ema_check and rs_check:
-            status = "💎 DIAMOND LAUNCH"
-        elif sqz_label == "FIRED 🚀":
-            status = "🚀 SQUEEZE FIRE"
-        elif (sqz_label in ["TIGHT", "EXTRA TIGHT"]) and today['box_width_pct'] < 5:
-            status = "🌀 COILING"
-        elif c1 and rs_check and slope_up:
-            status = "📈 TRENDING"
-        else:
-            status = "Consolidating"
         
         return {
             "Ticker": ticker.replace(".NS", ""),
@@ -141,10 +166,10 @@ def audit_stock(ticker, full_data, bench_df):
             "1M %": round(((today['close']/month_ago['close'])-1)*100, 2),
             "52W High": round(today['hi_52w'], 2),
             "52W Low": round(today['lo_52w'], 2),
-            "EMA 200 Slope": round(today['ema200_slope'], 3),
+            "EMA 200 Slope": round(today.get('ema200_slope', 0), 3),
             "Chart Link": f"https://www.tradingview.com/chart/?symbol=NSE:{ticker.replace('.NS', '')}"
         }
-    except:
+    except Exception as e:
         return None
 
 # ==========================================
