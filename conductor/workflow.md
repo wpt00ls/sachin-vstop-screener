@@ -6,6 +6,7 @@
 - Python TDD : Test driven development follow the [python tdd workflow](../skills/python-tdd/index.md)
 - Git flow: Follow the [git flow](../skills/git-flow/index.md) for implmenting new features and bug fixes
 - Use agentic skill developer to create new skills using the [agentic skill developer workflow](../skills/agentic-skill-developer/index.md)
+- Use software architecture auditor to audit code snippets or system designs against Pragmatic Minimalist patterns (DRY, KISS, YAGNI) and identifies complexity debt. Use when the user asks to review codebase complexity, analyze system design simplicity, or asks for an architecture/pattern review using the [software architecture auditor workflow](../skills/software-architecture-auditor/index.md)
 
 ## Guiding Principles
 
@@ -28,9 +29,11 @@ All tasks follow a strict lifecycle:
 
 3. Use git flow to create a new branch for the task
 
-4. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`
+4. Use expertise in software architecture auditor to audit code snippets or system designs against Pragmatic Minimalist patterns (DRY, KISS, YAGNI) and identifies complexity debt. Use when the user asks to review codebase complexity, analyze system design simplicity, or asks for an architecture/pattern review using the [software architecture auditor workflow](../skills/software-architecture-auditor/index.md)
 
-5. **Write Failing Tests (Red Phase):**
+5. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`
+
+6. **Write Failing Tests (Red Phase):**
    - Create a new test file for the feature or bug fix.
    - Write one or more unit tests that clearly define the expected behavior and acceptance criteria for the task.
    - **CRITICAL:** Run the tests and confirm that they fail as expected. This is the "Red" phase of TDD. Do not proceed until you have failing tests.
