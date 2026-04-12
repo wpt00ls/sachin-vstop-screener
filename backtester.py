@@ -4,6 +4,7 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 from vstop_screener import calculate_master_logic, calculate_status, BENCHMARK
+from lightweight_charts import Chart
 
 def fetch_data(ticker, years=5):
     end_date = datetime.now()
@@ -124,6 +125,57 @@ def calculate_metrics(trades):
         'max_drawdown': max_dd
     }
 
+def create_chart(df, trades, ticker):
+    chart = Chart(toolbox=True)
+    chart.legend(visible=True)
+    
+    # Standardize df for lightweight-charts
+    viz_df = df.copy().reset_index()
+    viz_df.columns = [str(c).lower() for c in viz_df.columns]
+    if 'date' not in viz_df.columns and 'index' in viz_df.columns:
+        viz_df = viz_df.rename(columns={'index': 'date'})
+        
+    # 1. Main Pane: Price Action
+    chart.set(viz_df)
+    
+    # 2. Indicators on Main Pane
+    vstop_line = chart.create_line('VStop', color='#2196F3', width=2)
+    vstop_line.set(viz_df[['date', 'vstop']].dropna().rename(columns={'vstop': 'VStop'}))
+    
+    ema50_line = chart.create_line('EMA 50', color='#FF9800', width=1)
+    ema50_line.set(viz_df[['date', 'ema50']].dropna().rename(columns={'ema50': 'EMA 50'}))
+    
+    ema200_line = chart.create_line('EMA 200', color='#9C27B0', width=1)
+    ema200_line.set(viz_df[['date', 'ema200']].dropna().rename(columns={'ema200': 'EMA 200'}))
+    
+    # 3. Buy/Sell Markers
+    for t in trades:
+        chart.marker(text='BUY', position='belowBar', shape='arrowUp', color='#26a69a', time=t['entry_date'])
+        chart.marker(text=f"SELL ({t['exit_reason']})", position='aboveBar', shape='arrowDown', color='#ef5350', time=t['exit_date'])
+        
+    # 4. Squeeze Indicators on a Subchart
+    try:
+        sqz_pane = chart.create_subchart(height=0.2)
+        viz_df['sqz_std_val'] = viz_df['sqz_std'].astype(int)
+        viz_df['sqz_tight_val'] = viz_df['sqz_tight'].astype(int) * 2
+        viz_df['sqz_xtra_val'] = viz_df['sqz_xtra'].astype(int) * 3
+        
+        sqz_pane.create_line('Standard', color='gray', width=1).set(
+            viz_df[['date', 'sqz_std_val']].rename(columns={'sqz_std_val': 'Standard'})
+        )
+        sqz_pane.create_line('Tight', color='orange', width=1).set(
+            viz_df[['date', 'sqz_tight_val']].rename(columns={'sqz_tight_val': 'Tight'})
+        )
+        sqz_pane.create_line('Extra Tight', color='red', width=1).set(
+            viz_df[['date', 'sqz_xtra_val']].rename(columns={'sqz_xtra_val': 'Extra Tight'})
+        )
+    except Exception as e:
+        print(f"⚠️ Could not create squeeze subplot: {e}")
+
+    print("📈 Opening interactive chart...")
+    chart.show()
+    return True
+
 def print_report(ticker, trades, metrics):
     print("\n" + "="*80)
     print(f"📊 BACKTEST RESULTS: {ticker}")
@@ -165,6 +217,7 @@ def main():
         metrics = calculate_metrics(trades)
         
         print_report(args.ticker, trades, metrics)
+        create_chart(df, trades, args.ticker)
         
     except Exception as e:
         print(f"❌ Error: {e}")
