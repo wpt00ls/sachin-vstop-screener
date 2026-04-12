@@ -1,7 +1,8 @@
 import pytest
 import pandas as pd
 import numpy as np
-from vstop_screener import calculate_master_logic
+from unittest.mock import patch, MagicMock
+from vstop_screener import calculate_master_logic, get_nifty500, audit_stock
 
 def test_rsi_calculation():
     # Create a 30-day dummy dataset
@@ -183,3 +184,82 @@ def test_vstop_calculation():
     
     # Check trend reversal at end (should be downtrend)
     assert result_df['trend'].iloc[59] == False
+
+def test_get_nifty500():
+    # Mocking pandas.read_csv to return a simple dataframe
+    with patch('pandas.read_csv') as mock_read_csv:
+        mock_df = pd.DataFrame({'Symbol': ['RELIANCE', 'TCS']})
+        mock_read_csv.return_value = mock_df
+        
+        tickers = get_nifty500()
+        assert tickers == ['RELIANCE.NS', 'TCS.NS']
+        
+    # Test fallback
+    with patch('pandas.read_csv', side_effect=Exception("Network error")):
+        tickers = get_nifty500()
+        assert 'RELIANCE.NS' in tickers
+
+def test_audit_stock():
+    # Create a dummy full_data for audit_stock
+    dates = pd.date_range(start="2023-01-01", periods=300)
+    data = {
+        ('RELIANCE.NS', 'Open'): [100.0] * 300,
+        ('RELIANCE.NS', 'High'): [102.0] * 300,
+        ('RELIANCE.NS', 'Low'): [98.0] * 300,
+        ('RELIANCE.NS', 'Close'): [100.0] * 300,
+        ('RELIANCE.NS', 'Volume'): [1000.0] * 300
+    }
+    full_data = pd.DataFrame(data, index=dates)
+    full_data.columns = pd.MultiIndex.from_tuples(full_data.columns)
+    
+    # Dummy benchmark data
+    bench_data = {'close': [100.0] * 300}
+    bench_df = pd.DataFrame(bench_data, index=dates)
+    
+    # Test audit_stock
+    res = audit_stock('RELIANCE.NS', full_data, bench_df)
+    assert res is not None
+    assert res['Ticker'] == 'RELIANCE'
+    # Default state for flat data should be "COILING" or "Consolidating"
+    # In my dummy data: box_width_pct is 0, sqz_label will be "EXTRA TIGHT"
+    # (sqz_label in ["TIGHT", "EXTRA TIGHT"]) and box_width_pct < 5 -> "🌀 COILING"
+    assert res['Status'] == "🌀 COILING"
+
+def test_main_execution():
+    # Mocking external calls in the main execution block
+    with patch('vstop_screener.get_nifty500') as mock_get_nifty:
+        with patch('yfinance.download') as mock_yf:
+            with patch('pandas.DataFrame.to_excel') as mock_to_excel:
+                with patch('pandas.ExcelWriter') as mock_writer:
+                    mock_get_nifty.return_value = ['RELIANCE.NS']
+                    
+                    # Mocking yf.download to return dataframes
+                    mock_bench = pd.DataFrame({'Close': [100.0] * 300}, index=pd.date_range('2023-01-01', periods=300))
+                    mock_bench.columns = ['close']
+                    
+                    mock_data = pd.DataFrame({
+                        ('RELIANCE.NS', 'Open'): [100.0] * 300,
+                        ('RELIANCE.NS', 'High'): [102.0] * 300,
+                        ('RELIANCE.NS', 'Low'): [98.0] * 300,
+                        ('RELIANCE.NS', 'Close'): [100.0] * 300,
+                        ('RELIANCE.NS', 'Volume'): [1000.0] * 300
+                    }, index=pd.date_range('2023-01-01', periods=300))
+                    mock_data.columns = pd.MultiIndex.from_tuples(mock_data.columns)
+                    
+                    # Side effect for yf.download to handle both calls
+                    def yf_side_effect(tickers, *args, **kwargs):
+                        if tickers == "^NSEI":
+                            return mock_bench
+                        return mock_data
+                    mock_yf.side_effect = yf_side_effect
+                    
+                    # Mock ExcelWriter context manager
+                    mock_writer.return_value.__enter__.return_value = MagicMock()
+                    
+                    from vstop_screener import main
+                    main()
+                    
+                    # Verify that download was called
+                    assert mock_yf.called
+                    # Verify that to_excel was called
+                    assert mock_to_excel.called

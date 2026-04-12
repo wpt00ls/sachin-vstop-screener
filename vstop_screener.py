@@ -1,0 +1,199 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+import concurrent.futures
+
+# ==========================================
+# 1. CONFIGURATION
+# ==========================================
+VSTOP_MULT = 3.0   # Structural trend setting for multi-baggers
+ATR_PERIOD = 20
+EMA_PERIODS = [50, 200] 
+VOL_MULT   = 1.5   
+BOX_LOOKBACK = 5   
+RSI_PERIOD = 14
+BENCHMARK  = "^NSEI" 
+DATA_LOOKBACK = 450 
+
+def get_nifty500():
+    url = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
+    try:
+        df = pd.read_csv(url)
+        return [f"{s}.NS" for s in df['Symbol'].tolist()]
+    except:
+        # Fallback list if NSE URL is unreachable
+        return ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "TATASTEEL.NS"]
+
+def calculate_master_logic(df, bench_df):
+    df.columns = [str(c).lower() for c in df.columns]
+    
+    # --- 1. RSI & EMAs ---
+    delta = df['close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=RSI_PERIOD).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=RSI_PERIOD).mean()
+    df['rsi'] = 100 - (100 / (1 + (gain / loss)))
+
+    for p in EMA_PERIODS:
+        df[f'ema{p}'] = df['close'].ewm(span=p, adjust=False).mean()
+    
+    # EMA 200 Slope (Performance over last 20 trading days)
+    df['ema200_slope'] = (df['ema200'] - df['ema200'].shift(20)) / df['ema200'].shift(20) * 100
+        
+    df['vol_avg'] = df['volume'].rolling(20).mean()
+    df['rs_ratio'] = df['close'] / bench_df['close'].reindex(df.index).ffill()
+    df['rs_ma'] = df['rs_ratio'].rolling(50).mean()
+    
+    # --- 2. Squeeze Pro Logic (Bollinger Bands vs Keltner Channels) ---
+    sma = df['close'].rolling(window=20).mean()
+    std = df['close'].rolling(window=20).std()
+    df['bb_up'] = sma + (2.0 * std)
+    df['bb_low'] = sma - (2.0 * std)
+    
+    tr = pd.concat([df['high']-df['low'], abs(df['high']-df['close'].shift(1)), abs(df['low']-df['close'].shift(1))], axis=1).max(axis=1)
+    atr_20 = tr.rolling(20).mean()
+    
+    # Standard (1.5x), Tight (1.2x), Extra Tight (1.0x ATR)
+    df['sqz_std'] = (df['bb_up'] < (sma + (1.5 * atr_20))) & (df['bb_low'] > (sma - (1.5 * atr_20)))
+    df['sqz_tight'] = (df['bb_up'] < (sma + (1.2 * atr_20))) & (df['bb_low'] > (sma - (1.2 * atr_20)))
+    df['sqz_xtra'] = (df['bb_up'] < (sma + (1.0 * atr_20))) & (df['bb_low'] > (sma - (1.0 * atr_20)))
+
+    # --- 3. Box & 52-Week Metrics ---
+    df['box_high'] = df['high'].shift(1).rolling(window=BOX_LOOKBACK).max()
+    df['box_low'] = df['low'].shift(1).rolling(window=BOX_LOOKBACK).min()
+    df['box_width_pct'] = ((df['box_high'] - df['box_low']) / df['box_low']) * 100
+    df['hi_52w'] = df['high'].rolling(window=252).max()
+    df['lo_52w'] = df['low'].rolling(window=252).min()
+    
+    # --- 4. Recursive Vstop ---
+    closes, highs, lows, atrs = df['close'].values, df['high'].values, df['low'].values, atr_20.values
+    stops, trends = [np.nan]*len(df), [True]*len(df)
+    uptrend, max_val, min_val, stop = True, highs[ATR_PERIOD], lows[ATR_PERIOD], lows[ATR_PERIOD]
+    
+    for i in range(ATR_PERIOD, len(df)):
+        src, atr_m = closes[i], atrs[i] * VSTOP_MULT
+        if np.isnan(atr_m): continue
+        if uptrend:
+            max_val = max(max_val, highs[i]); stop = max(stop, max_val - atr_m)
+            if src < stop: uptrend, min_val, stop = False, lows[i], lows[i] + atr_m
+        else:
+            min_val = min(min_val, lows[i]); stop = min(stop, min_val + atr_m)
+            if src > stop: uptrend, max_val, stop = True, highs[i], highs[i] - atr_m
+        stops[i], trends[i] = stop, uptrend
+        
+    df['vstop'], df['trend'] = stops, trends
+    return df
+
+def audit_stock(ticker, full_data, bench_df):
+    try:
+        if ticker not in full_data.columns.get_level_values(0): return None
+        df = full_data[ticker].copy().dropna(subset=['Close'])
+        if len(df) < 252: return None
+        df = calculate_master_logic(df, bench_df)
+        
+        today, yesterday = df.iloc[-1], df.iloc[-2]
+        week_ago = df.iloc[-5] if len(df) > 5 else df.iloc[0]
+        month_ago = df.iloc[-21] if len(df) > 21 else df.iloc[0]
+        
+        # Squeeze Label Assignment
+        sqz_label = "None"
+        if today['sqz_xtra']: sqz_label = "EXTRA TIGHT"
+        elif today['sqz_tight']: sqz_label = "TIGHT"
+        elif today['sqz_std']: sqz_label = "Standard"
+        elif yesterday['sqz_std'] and not today['sqz_std']: sqz_label = "FIRED 🚀"
+
+        # Confluence Check Results
+        c1 = today['trend'] == True
+        c2 = today['low'] > yesterday['low']
+        c3 = today['close'] > today['box_high']
+        c4 = today['volume'] > (today['vol_avg'] * VOL_MULT)
+        ema_check = all(today['close'] > today[f'ema{p}'] for p in EMA_PERIODS)
+        rs_check = (today['rs_ratio'] > today['rs_ma'])
+        slope_up = today['ema200_slope'] > 0
+
+        # --- STATUS LOGIC (LIFECYCLE RANKING) ---
+        if sqz_label == "FIRED 🚀" and c3 and c4 and ema_check and rs_check:
+            status = "💎 DIAMOND LAUNCH"
+        elif sqz_label == "FIRED 🚀":
+            status = "🚀 SQUEEZE FIRE"
+        elif (sqz_label in ["TIGHT", "EXTRA TIGHT"]) and today['box_width_pct'] < 5:
+            status = "🌀 COILING"
+        elif c1 and rs_check and slope_up:
+            status = "📈 TRENDING"
+        else:
+            status = "Consolidating"
+        
+        return {
+            "Ticker": ticker.replace(".NS", ""),
+            "LTP": round(today['close'], 2),
+            "Status": status,
+            "Squeeze Status": sqz_label,
+            "1. Vstop Green": "Yes" if c1 else "No",
+            "2. Higher Low": "Yes" if c2 else "No",
+            "3. Box Breakout": "Yes" if c3 else "No",
+            "4. Heavy Volume": "Yes" if c4 else "No",
+            "5. EMA Filters Met": "Yes" if ema_check else "No",
+            "Box High (Ceiling)": round(today['box_high'], 2),
+            "Box Width %": round(today['box_width_pct'], 2),
+            "RSI (14)": round(today['rsi'], 2),
+            "1D %": round(((today['close']/yesterday['close'])-1)*100, 2),
+            "1W %": round(((today['close']/week_ago['close'])-1)*100, 2),
+            "1M %": round(((today['close']/month_ago['close'])-1)*100, 2),
+            "52W High": round(today['hi_52w'], 2),
+            "52W Low": round(today['lo_52w'], 2),
+            "EMA 200 Slope": round(today['ema200_slope'], 3),
+            "Chart Link": f"https://www.tradingview.com/chart/?symbol=NSE:{ticker.replace('.NS', '')}"
+        }
+    except:
+        return None
+
+# ==========================================
+# 2. EXECUTION
+# ==========================================
+def main():
+    tickers = get_nifty500()
+    start_pt = (datetime.now() - timedelta(days=DATA_LOOKBACK)).strftime("%Y-%m-%d")
+
+    print(f"📡 Downloading Nifty 500 Data and Benchmark...")
+    bench = yf.download(BENCHMARK, start=start_pt, auto_adjust=False, progress=False)
+    if isinstance(bench.columns, pd.MultiIndex): bench.columns = bench.columns.get_level_values(0)
+    bench.columns = [str(c).lower() for c in bench.columns]
+
+    data = yf.download(tickers, start=start_pt, auto_adjust=False, group_by='ticker', progress=True)
+
+    results = []
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(audit_stock, t, data, bench) for t in tickers]
+        for f in concurrent.futures.as_completed(futures):
+            res = f.result()
+            if res: results.append(res)
+
+    if results:
+        fname = f"NSE500_Master_Audit_{datetime.now().strftime('%d%b')}.xlsx"
+
+        # Sort logic: Diamond > Squeeze Fire > Coiling > Trending > Consolidating
+        status_order = {"💎 DIAMOND LAUNCH": 0, "🚀 SQUEEZE FIRE": 1, "🌀 COILING": 2, "📈 TRENDING": 3, "Consolidating": 4}
+        df_audit = pd.DataFrame(results)
+        df_audit['rank'] = df_audit['Status'].map(status_order)
+        df_audit = df_audit.sort_values("rank").drop(columns=['rank'])
+
+        with pd.ExcelWriter(fname, engine='xlsxwriter') as writer:
+            df_audit.to_excel(writer, index=False, sheet_name='NSE500_Audit')
+
+            workbook = writer.book
+            ws = writer.sheets['NSE500_Audit']
+
+            # Formatting Styles
+            green_fmt = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
+            red_fmt   = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
+
+            # Conditional Formatting for Yes/No columns (E to I)
+            ws.conditional_format('E2:I600', {'type': 'cell', 'criteria': 'equal to', 'value': '"Yes"', 'format': green_fmt})
+            ws.conditional_format('E2:I600', {'type': 'cell', 'criteria': 'equal to', 'value': '"No"', 'format': red_fmt})
+
+            ws.set_column('A:T', 18)
+
+        print(f"✅ Audit Complete! Saved to {fname}")
+
+if __name__ == "__main__":
+    main()
