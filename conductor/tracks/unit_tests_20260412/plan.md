@@ -28,10 +28,10 @@ This plan outlines the steps for implementing unit tests for the core technical 
     - [x] Write failing test cases for Box High/Low and 52-Week High/Low
     - [x] Implement/Refactor Box logic to ensure it passes
     - [x] Verify test passes and check coverage
-- [ ] Task: Implement tests for Recursive VSTOP
-    - [ ] Write failing test case for VSTOP (Uptrend/Downtrend shifts)
-    - [ ] Implement/Refactor VSTOP logic to ensure it passes
-    - [ ] Verify test passes and check coverage
+- [x] Task: Implement tests for Recursive VSTOP 12a498f
+    - [x] Write failing test case for VSTOP (Uptrend/Downtrend shifts)
+    - [x] Implement/Refactor VSTOP logic to ensure it passes
+    - [x] Verify test passes and check coverage
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Unit Testing Core Indicators (TDD)' (Protocol in workflow.md)
 
 ## Phase 3: Integration and Final Quality Gate
