@@ -29,10 +29,10 @@ This plan outlines the steps for implementing the historical backtesting and vis
     - [x] Write failing test cases for SELL conditions (VStop red or close < 50 EMA)
     - [x] Implement SELL signal generation and trade matching in `backtester.py`
     - [x] Verify test passes and check coverage
-- [ ] Task: Implement PnL calculation
-    - [ ] Write failing test cases for Trade PnL calculations
-    - [ ] Implement calculation of win/loss percentages and overall performance for executed trades
-    - [ ] Verify test passes and check coverage
+- [x] Task: Implement PnL calculation (2f671ff)
+    - [x] Write failing test cases for Trade PnL calculations
+    - [x] Implement calculation of win/loss percentages and overall performance for executed trades
+    - [x] Verify test passes and check coverage
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Signal Generation & Backtesting Logic' (Protocol in workflow.md)
 
 ## Phase 3: Reporting & CLI
