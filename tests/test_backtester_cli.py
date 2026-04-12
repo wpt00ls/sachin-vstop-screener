@@ -15,3 +15,11 @@ def test_backtester_cli_args():
     # It might fail with error because data fetching is not yet implemented, 
     # but it shouldn't fail with "unrecognized arguments"
     assert 'unrecognized arguments' not in result.stderr
+
+def test_backtester_report_format():
+    # Test if the output contains the summary table headers
+    result = subprocess.run([sys.executable, 'backtester.py', 'RELIANCE.NS', '--years', '1'], capture_output=True, text=True)
+    # Even if 0 trades, it should show the summary block
+    assert 'BACKTEST RESULTS' in result.stdout
+    assert 'Win Rate' in result.stdout
+    assert 'Max Drawdown' in result.stdout

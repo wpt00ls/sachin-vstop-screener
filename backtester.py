@@ -49,11 +49,12 @@ def generate_signals(df, ticker_name):
         
         if not in_position:
             # BUY Condition (Aggressive Breakout)
-            if status in ["💎 DIAMOND LAUNCH", "🚀 SQUEEZE FIRE"]:
+            if status == "💎 DIAMOND LAUNCH":
                 in_position = True
                 entry_price = row['close']
                 entry_date = df.index[i]
                 print(f"  🟢 BUY at {entry_price:.2f} on {entry_date.date()} (Status: {status})")
+
         else:
             # SELL Condition (Trend Failure)
             exit_reason = None
@@ -124,6 +125,34 @@ def calculate_metrics(trades):
         'max_drawdown': max_dd
     }
 
+def print_report(ticker, trades, metrics):
+    print("\n" + "="*80)
+    print(f"📊 BACKTEST RESULTS: {ticker}")
+    print("="*80)
+    
+    if trades:
+        print(f"{'Entry Date':<12} | {'Exit Date':<12} | {'Entry':<8} | {'Exit':<8} | {'PnL %':<8} | {'Reason'}")
+        print("-" * 80)
+        for t in trades:
+            print(f"{t['entry_date'].strftime('%Y-%m-%d'):<12} | "
+                  f"{t['exit_date'].strftime('%Y-%m-%d'):<12} | "
+                  f"{t['entry_price']:>8.2f} | "
+                  f"{t['exit_price']:>8.2f} | "
+                  f"{t['pnl_pct']:>7.2f}% | "
+                  f"{t['exit_reason']}")
+        print("-" * 80)
+    else:
+        print("No trades executed during this period.")
+        print("-" * 80)
+
+    print(f"{'Total Trades:':<20} {metrics['total_trades']}")
+    print(f"{'Win Rate:':<20} {metrics['win_rate']:.2f}%")
+    print(f"{'Total PnL:':<20} {metrics['total_pnl']:.2f}%")
+    print(f"{'Avg Win:':<20} {metrics['avg_win']:.2f}%")
+    print(f"{'Avg Loss:':<20} {metrics['avg_loss']:.2f}%")
+    print(f"{'Max Drawdown:':<20} {metrics['max_drawdown']:.2f}%")
+    print("="*80 + "\n")
+
 def main():
     parser = argparse.ArgumentParser(description='VStop Historical Backtester')
     parser.add_argument('ticker', type=str, help='Ticker symbol (e.g., RELIANCE.NS)')
@@ -131,8 +160,18 @@ def main():
     
     args = parser.parse_args()
     
-    print(f"Backtesting ticker: {args.ticker} over {args.years} years...")
-    # Logic for data fetching and backtesting will be added in subsequent tasks
+    try:
+        df = fetch_data(args.ticker, args.years)
+        trades, df = generate_signals(df, args.ticker)
+        metrics = calculate_metrics(trades)
+        
+        print_report(args.ticker, trades, metrics)
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
