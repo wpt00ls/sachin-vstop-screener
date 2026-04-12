@@ -6,7 +6,7 @@ from backtester import create_chart
 
 def test_create_chart_execution():
     # Create dummy data
-    dates = pd.date_range(start="2023-01-01", periods=300) # Need enough data for dropna
+    dates = pd.date_range(start="2023-01-01", periods=300)
     df = pd.DataFrame({
         'open': [100.0]*300,
         'high': [102.0]*300,
@@ -24,6 +24,7 @@ def test_create_chart_execution():
     }, index=dates)
     
     trades = [{
+        'ticker': 'TEST.NS',
         'entry_date': dates[100],
         'entry_price': 100.0,
         'exit_date': dates[120],
@@ -36,3 +37,6 @@ def test_create_chart_execution():
         res = create_chart(df, trades, "TEST.NS")
         assert res is True
         assert mock_write.called
+        # Check if the path passed to write_html starts with results/
+        args, kwargs = mock_write.call_args
+        assert args[0].startswith('results/backtest_TEST_')

@@ -130,7 +130,9 @@ def create_chart(df, trades, ticker):
     # Filter out early data with NaN indicators for cleaner chart
     df = df.dropna(subset=['ema200', 'vstop', 'rsi']).copy()
     
-    filename = f"backtest_{ticker.replace('.NS', '')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"backtest_{ticker.replace('.NS', '')}_{timestamp}.html"
+    filepath = f"results/{filename}"
     
     # Create multi-pane layout
     fig = make_subplots(rows=3, cols=1, shared_xaxes=True, 
@@ -172,8 +174,9 @@ def create_chart(df, trades, ticker):
     fig.update_layout(height=1000, title_text=f"VStop Backtest: {ticker}", showlegend=True,
                       xaxis_rangeslider_visible=False)
     
-    fig.write_html(filename)
-    print(f"📈 Chart saved to {filename}. Open this file in your browser to view.")
+    fig.write_html(filepath)
+    print(f"📈 Chart saved to {filepath}")
+    print(f"🔗 To view, run: google-chrome {filepath}")
     return True
 
 def print_report(ticker, trades, metrics):
