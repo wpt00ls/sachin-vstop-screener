@@ -4,10 +4,10 @@ This plan outlines the steps for implementing the historical backtesting and vis
 
 ## Phase 1: Logic Consolidation
 
-- [ ] Task: Refactor `vstop_screener.py` for modularity
-    - [ ] Write failing test cases to ensure `calculate_master_logic` can be imported and executed independently
-    - [ ] Implement/Refactor `calculate_master_logic` in `vstop_screener.py` (if needed) for clean import
-    - [ ] Verify test passes and check coverage
+- [x] Task: Refactor `vstop_screener.py` for modularity (5f9d8be)
+    - [x] Write failing test cases to ensure `calculate_master_logic` can be imported and executed independently
+    - [x] Implement/Refactor `calculate_master_logic` in `vstop_screener.py` (if needed) for clean import
+    - [x] Verify test passes and check coverage
 - [ ] Task: Set up `backtester.py` scaffolding
     - [ ] Create `backtester.py` with basic `argparse` CLI setup
     - [ ] Write failing test cases for CLI argument parsing (ticker, timespan)
