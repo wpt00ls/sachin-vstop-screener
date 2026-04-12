@@ -48,10 +48,10 @@ This plan outlines the steps for implementing the historical backtesting and vis
 
 ## Phase 4: Visualization (TradingView-style)
 
-- [ ] Task: Implement interactive charting
-    - [ ] Install `lightweight-charts` and update `requirements.txt`
-    - [ ] Write failing test cases for chart generation (ensuring HTML file creation)
-    - [ ] Implement multi-pane layout: Price/VStop/EMAs in main pane, Volume and Squeeze in secondary panes
-    - [ ] Implement Buy/Sell marker overlay logic
-    - [ ] Verify test passes and check coverage
+- [x] Task: Implement interactive charting (6f74388)
+    - [x] Install `lightweight-charts` and update `requirements.txt`
+    - [x] Write failing test cases for chart generation (ensuring HTML file creation)
+    - [x] Implement multi-pane layout: Price/VStop/EMAs in main pane, Volume and Squeeze in secondary panes
+    - [x] Implement Buy/Sell marker overlay logic
+    - [x] Verify test passes and check coverage
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Visualization (TradingView-style)' (Protocol in workflow.md)
