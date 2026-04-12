@@ -32,7 +32,7 @@ This plan outlines the steps for implementing unit tests for the core technical 
     - [x] Write failing test case for VSTOP (Uptrend/Downtrend shifts)
     - [x] Implement/Refactor VSTOP logic to ensure it passes
     - [x] Verify test passes and check coverage
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Unit Testing Core Indicators (TDD)' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Unit Testing Core Indicators (TDD)' (Protocol in workflow.md) [checkpoint: 7c19583]
 
 ## Phase 3: Integration and Final Quality Gate
 
