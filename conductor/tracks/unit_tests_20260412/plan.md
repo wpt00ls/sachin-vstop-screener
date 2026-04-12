@@ -12,10 +12,10 @@ This plan outlines the steps for implementing unit tests for the core technical 
 
 ## Phase 2: Unit Testing Core Indicators (TDD)
 
-- [ ] Task: Implement tests for RSI calculation
-    - [ ] Write failing test case with known RSI values
-    - [ ] Implement/Refactor RSI logic in `vstop_screener.py` to ensure it passes
-    - [ ] Verify test passes and check coverage
+- [x] Task: Implement tests for RSI calculation 136df4c
+    - [x] Write failing test case with known RSI values
+    - [x] Implement/Refactor RSI logic in `vstop_screener.py` to ensure it passes
+    - [x] Verify test passes and check coverage
 - [ ] Task: Implement tests for EMA and EMA Slope calculations
     - [ ] Write failing test cases for EMA 50, EMA 200, and EMA Slope
     - [ ] Implement/Refactor EMA logic to ensure it passes
