@@ -108,3 +108,45 @@ def test_squeeze_logic():
     assert result_df['sqz_std'].iloc[idx] == True
     assert result_df['sqz_tight'].iloc[idx] == True
     assert result_df['sqz_xtra'].iloc[idx] == True
+
+def test_box_metrics():
+    # Create a 300-day dummy dataset (for 52-week/252-day metrics)
+    dates = pd.date_range(start="2023-01-01", periods=300)
+    # Highs steadily increasing, Lows steadily increasing
+    data = {
+        'high': [100 + i for i in range(300)],
+        'low': [90 + i for i in range(300)],
+        'close': [95 + i for i in range(300)],
+        'volume': [1000] * 300
+    }
+    df = pd.DataFrame(data, index=dates)
+    
+    # Dummy benchmark data
+    bench_data = {'close': [100] * 300}
+    bench_df = pd.DataFrame(bench_data, index=dates)
+    
+    # Calculate indicators
+    result_df = calculate_master_logic(df.copy(), bench_df)
+    
+    # Verify columns exist
+    assert 'box_high' in result_df.columns
+    assert 'box_low' in result_df.columns
+    assert 'box_width_pct' in result_df.columns
+    assert 'hi_52w' in result_df.columns
+    assert 'lo_52w' in result_df.columns
+    
+    # Check Box metrics at index 10
+    # box_high is max of high.shift(1) over 5 periods
+    # high.shift(1) at index 10: [..., 104, 105, 106, 107, 108, 109]
+    # Lookback 5 from index 10 (exclusive of index 10 itself due to shift): 
+    # indices 5, 6, 7, 8, 9. Highs: 105, 106, 107, 108, 109. Max = 109.
+    assert result_df['box_high'].iloc[10] == 109
+    assert result_df['box_low'].iloc[10] == 95 # indices 5..9 lows: 95, 96, 97, 98, 99. Min = 95.
+    
+    # Check 52-week metrics at index 260
+    # hi_52w is max of high over 252 periods (inclusive of current)
+    # highs: 100, ..., 359 (at index 259)
+    # index 260: high is 360. hi_52w from 260 back to 9 (252 periods)
+    # Max will be current high (360) as they are increasing.
+    assert result_df['hi_52w'].iloc[260] == 360
+    assert result_df['lo_52w'].iloc[260] == 99 # 260-252+1 = index 9. low[9] = 90+9 = 99.
