@@ -68,3 +68,36 @@ def test_diamond_launch_requires_positive_slope():
     assert status_pos == "💎 DIAMOND LAUNCH"
     # This is the failing assertion for the RED phase
     assert status_neg != "💎 DIAMOND LAUNCH", "Diamond Launch should NOT be assigned if EMA 200 slope is negative"
+
+def test_coiling_requires_tight_box_width():
+    """
+    Test that COILING status is only assigned when Box Width % is under 3%.
+    """
+    dates = pd.date_range(start="2023-01-01", periods=30)
+    
+    # Base data (Extra Tight Squeeze)
+    df = pd.DataFrame({
+        'high': [102] * 30,
+        'low': [98] * 30,
+        'close': [100] * 30,
+        'volume': [1000] * 30
+    }, index=dates)
+    
+    bench_df = pd.DataFrame({'close': [100] * 30}, index=dates)
+    df = calculate_master_logic(df, bench_df)
+    
+    # row['sqz_xtra'] will be True
+    # Test with box_width_pct = 4.0 (Previously allowed, now should be Consolidating)
+    row_4 = df.iloc[-1].copy()
+    row_4['box_width_pct'] = 4.0
+    
+    # Test with box_width_pct = 2.0 (Should still be COILING)
+    row_2 = df.iloc[-1].copy()
+    row_2['box_width_pct'] = 2.0
+    
+    status_4, _ = calculate_status(row_4, df.iloc[-2])
+    status_2, _ = calculate_status(row_2, df.iloc[-2])
+    
+    assert status_2 == "🌀 COILING"
+    # This should fail in RED phase (currently checks for < 5)
+    assert status_4 != "🌀 COILING", "Coiling should NOT be assigned if Box Width % is >= 3%"

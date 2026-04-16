@@ -126,7 +126,7 @@ def calculate_status(row, prev_row, vol_mult=VOL_MULT, ema_periods=EMA_PERIODS):
         status = "💎 DIAMOND LAUNCH"
     elif sqz_label == "FIRED 🚀":
         status = "🚀 SQUEEZE FIRE"
-    elif (sqz_label in ["TIGHT", "EXTRA TIGHT"]) and row['box_width_pct'] < 5:
+    elif (sqz_label in ["TIGHT", "EXTRA TIGHT"]) and row['box_width_pct'] < 3:
         status = "🌀 COILING"
     elif c1 and rs_check and slope_up:
         status = "📈 TRENDING"
