@@ -42,13 +42,19 @@ def generate_signals(df, ticker_name):
     entry_price = 0
     entry_date = None
     
+    # Capture status history
+    statuses = ["Consolidating"] * len(df)
+    sqz_labels = ["None"] * len(df)
+    
     print(f"🔍 Analyzing signals for {ticker_name}...")
     
     for i in range(1, len(df)):
         row = df.iloc[i]
         prev_row = df.iloc[i-1]
         
-        status, _ = calculate_status(row, prev_row)
+        status, sqz_label = calculate_status(row, prev_row)
+        statuses[i] = status
+        sqz_labels[i] = sqz_label
         
         if not in_position:
             # BUY Condition (Aggressive Breakout)
@@ -83,8 +89,60 @@ def generate_signals(df, ticker_name):
                 
                 print(f"  🔴 SELL at {exit_price:.2f} on {exit_date.date()} (Reason: {exit_reason}) | PnL: {pnl_pct:.2f}%")
                 in_position = False
-            
+    
+    df['status'] = statuses
+    df['squeeze_status'] = sqz_labels
     return trades, df
+
+def export_to_excel(df, ticker):
+    """
+    Export the full historical signal/indicator series to an Excel file.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    fname = f"{ticker.replace('.NS', '')}_Signals_{timestamp}.xlsx"
+    
+    # Select and rename columns for clarity
+    export_cols = {
+        'close': 'Close',
+        'status': 'Status',
+        'squeeze_status': 'Squeeze Status',
+        'vstop': 'VStop',
+        'trend': 'Trend (Green/Red)',
+        'vstop_dist_pct': 'VStop Distance %',
+        'volume': 'Volume',
+        'vol_avg': 'Vol Avg',
+        'vol_multiple': 'Volume Multiple',
+        'vol_spike_last_7d': 'Vol Spike Last 7D',
+        'ema50': 'EMA 50',
+        'ema200': 'EMA 200',
+        'rsi': 'RSI (14)',
+        'rs_ratio': 'RS Ratio',
+        'rs_ma': 'RS MA',
+        'ema200_slope': 'EMA 200 Slope'
+    }
+    
+    # Filter only available columns
+    available_cols = [c for c in export_cols.keys() if c in df.columns]
+    df_export = df[available_cols].copy()
+    df_export = df_export.rename(columns=export_cols)
+    
+    # Reorder (Date will be the index)
+    df_export.index.name = 'Date'
+    
+    with pd.ExcelWriter(fname, engine='xlsxwriter') as writer:
+        df_export.to_excel(writer, sheet_name='Signal History')
+        workbook = writer.book
+        worksheet = writer.sheets['Signal History']
+        
+        # Add some basic formatting
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+        for col_num, value in enumerate(df_export.columns.values):
+            worksheet.write(0, col_num + 1, value, header_format)
+        
+        worksheet.set_column('A:Q', 15)
+        
+    print(f"📊 Signal history exported to {fname}")
+    return fname
 
 def calculate_metrics(trades):
     if not trades:
@@ -213,6 +271,7 @@ def main():
     parser = argparse.ArgumentParser(description='VStop Historical Backtester')
     parser.add_argument('ticker', type=str, help='Ticker symbol (e.g., RELIANCE.NS)')
     parser.add_argument('--years', type=int, default=5, help='Number of years for historical data (default: 5)')
+    parser.add_argument('--export', action='store_true', help='Export full signal history to Excel')
     
     args = parser.parse_args()
     
@@ -223,6 +282,9 @@ def main():
         
         print_report(args.ticker, trades, metrics)
         create_chart(df, trades, args.ticker)
+        
+        if args.export:
+            export_to_excel(df, args.ticker)
         
     except Exception as e:
         print(f"❌ Error: {e}")
