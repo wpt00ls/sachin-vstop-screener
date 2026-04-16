@@ -1,11 +1,11 @@
 # Implementation Plan: Strategy Update & Signal Export
 
-## Phase 1: Core Strategy & Indicator Refinement
+## Phase 1: Core Strategy & Indicator Refinement [checkpoint: a9af5ba]
 - [x] Task: Update `calculate_master_logic` in `vstop_screener.py` to calculate `vol_spike_last_7d` (lookback volume condition). 32efb77
 - [x] Task: Update `calculate_master_logic` in `vstop_screener.py` to include `vstop_dist_pct` and `vol_multiple` indicators. 32efb77
 - [x] Task: Update `calculate_status` in `vstop_screener.py` to use `vol_spike_last_7d` for "💎 DIAMOND LAUNCH" confluence. 32efb77
 - [x] Task: Write tests in `tests/test_strategy_update.py` to verify the 7-day volume lookback and normalized metrics. 32efb77
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Core Strategy & Indicator Refinement' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Core Strategy & Indicator Refinement' (Protocol in workflow.md) a9af5ba
 
 ## Phase 2: Backtester Excel Export Feature
 - [ ] Task: Enhance `backtester.py` to capture full indicator history for each row during the signal generation loop.
