@@ -8,10 +8,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Core Strategy & Indicator Refinement' (Protocol in workflow.md) a9af5ba
 
 ## Phase 2: Backtester Excel Export Feature
-- [ ] Task: Enhance `backtester.py` to capture full indicator history for each row during the signal generation loop.
-- [ ] Task: Implement `export_to_excel` functionality in `backtester.py` using `xlsxwriter`.
-- [ ] Task: Update `backtester.py` CLI to include an `--export` flag (or enable it by default).
-- [ ] Task: Update `tests/test_backtester_signals.py` to verify that the export functionality works and contains the correct columns.
+- [x] Task: Enhance `backtester.py` to capture full indicator history for each row during the signal generation loop. 945af15
+- [x] Task: Implement `export_to_excel` functionality in `backtester.py` using `xlsxwriter`. 945af15
+- [x] Task: Update `backtester.py` CLI to include an `--export` flag (or enable it by default). 945af15
+- [x] Task: Update `tests/test_backtester_signals.py` to verify that the export functionality works and contains the correct columns. 945af15
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Backtester Excel Export Feature' (Protocol in workflow.md)
 
 ## Phase 3: Final Integration & Regression
