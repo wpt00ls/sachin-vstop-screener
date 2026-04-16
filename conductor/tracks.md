@@ -4,5 +4,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: strategy update and make changes to backtest accordingly.**
+- [x] **Track: strategy update and make changes to backtest accordingly.**
 *Link: [./tracks/strategy_update_20260416/](./tracks/strategy_update_20260416/)*
