@@ -22,9 +22,9 @@ To provide a robust, automated tool for quantitative traders and investors to ra
    - Box Breakout metrics and 52-week High/Lows
 3. **Confluence Logic & Ranking**: Evaluates stocks against multiple conditions (trend, higher lows, volume, moving average alignment) to categorize them into actionable statuses like "DIAMOND LAUNCH", "SQUEEZE FIRE", "COILING", or "TRENDING".
 4. **Excel Reporting**: Exports the audited results into a formatted Excel spreadsheet with conditional formatting for easy visual scanning of the daily setups.
-5. **Historical Backtesting**: Provides a CLI tool to simulate trading strategies on individual tickers using historical data, outputting performance metrics and interactive charts.
+5. **Historical Backtesting & Export**: Provides a CLI tool to simulate trading strategies on individual tickers using historical data, outputting performance metrics, interactive charts, and a detailed Excel export of all historical signals and indicators for deeper analysis.
 
 ## Success Metrics
 - Fast, reliable execution over the entire NSE 500 universe within a single run.
-- Accurate calculation of technical indicators matching standard charting platforms.
+- Accurate calculation of technical indicators matching standard charting platforms, including robust confluence logic with time-based lookbacks (e.g., 7-day volume spike window).
 - Clean, readable, and actionable Excel output generated daily.- **Tested Reliability**: Maintenance of high code coverage (>80%) for all core indicator logic.
