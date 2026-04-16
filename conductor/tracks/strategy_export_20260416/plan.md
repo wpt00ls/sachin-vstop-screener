@@ -14,7 +14,7 @@
 - [x] Task: Update `tests/test_backtester_signals.py` to verify that the export functionality works and contains the correct columns. 0651d98
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Backtester Excel Export Feature' (Protocol in workflow.md) a32489b
 
-## Phase 3: Final Integration & Regression
+## Phase 3: Final Integration & Regression [checkpoint: 69b65c1]
 - [x] Task: Run full regression tests on `vstop_screener.py` and `backtester.py`. 3b1dc32
-- [~] Task: Verify the Excel output format and data accuracy for a sample ticker (e.g., RELIANCE.NS).
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Final Integration & Regression' (Protocol in workflow.md)
+- [x] Task: Verify the Excel output format and data accuracy for a sample ticker (e.g., RELIANCE.NS). 69b65c1
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Final Integration & Regression' (Protocol in workflow.md) 69b65c1
