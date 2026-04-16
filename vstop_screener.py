@@ -46,6 +46,8 @@ def calculate_master_logic(df, bench_df, vstop_mult=VSTOP_MULT, atr_period=ATR_P
     # For parity, we'll keep it as is or check if 200 is in ema_periods.
     if 200 in ema_periods:
         df['ema200_slope'] = (df['ema200'] - df['ema200'].shift(20)) / df['ema200'].shift(20) * 100
+        df['ema200_slope_neg_5d'] = (df['ema200_slope'] < 0).rolling(window=5).min() == 1
+        df['ema200_slope_neg_5d'] = df['ema200_slope_neg_5d'].fillna(False)
         
     df['vol_avg'] = df['volume'].rolling(20).mean()
     df['rs_ratio'] = df['close'] / bench_df['close'].reindex(df.index).ffill()
