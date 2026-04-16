@@ -122,7 +122,7 @@ def calculate_status(row, prev_row, vol_mult=VOL_MULT, ema_periods=EMA_PERIODS):
     slope_up = row.get('ema200_slope', 0) > 0 if 'ema200_slope' in row else False
 
     # --- STATUS LOGIC (LIFECYCLE RANKING) ---
-    if sqz_label == "FIRED 🚀" and c3 and c4 and ema_check and rs_check:
+    if sqz_label == "FIRED 🚀" and c3 and c4 and ema_check and rs_check and slope_up:
         status = "💎 DIAMOND LAUNCH"
     elif sqz_label == "FIRED 🚀":
         status = "🚀 SQUEEZE FIRE"
