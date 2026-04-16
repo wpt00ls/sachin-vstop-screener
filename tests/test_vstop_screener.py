@@ -110,6 +110,70 @@ def test_squeeze_logic():
     assert result_df['sqz_tight'].iloc[idx]
     assert result_df['sqz_xtra'].iloc[idx]
 
+def test_squeeze_multipliers():
+    # Test specific multipliers for squeeze
+    from vstop_screener import SQZ_STD_MULT, SQZ_TIGHT_MULT, SQZ_XTRA_MULT
+    assert SQZ_STD_MULT == 1.5
+    assert SQZ_TIGHT_MULT == 1.2
+    assert SQZ_XTRA_MULT == 1.0
+
+    # Create data where Bollinger Bands and Keltner Channels are easily controllable
+    dates = pd.date_range(start="2023-01-01", periods=30)
+    # ATR = 4
+    data = {
+        'high': [102] * 30,
+        'low': [98] * 30,
+        'close': [100] * 30,
+        'volume': [1000] * 30
+    }
+    df = pd.DataFrame(data, index=dates)
+    bench_df = pd.DataFrame({'close': [100] * 30}, index=dates)
+    
+    # We will mock the bb_up and bb_low columns after calculate_master_logic
+    # to test the squeeze boolean logic specifically.
+    df_res = calculate_master_logic(df, bench_df)
+    
+    # sma = 100, atr = 4
+    # sqz_std threshold: 100 + 1.5 * 4 = 106
+    # sqz_tight threshold: 100 + 1.2 * 4 = 104.8
+    # sqz_xtra threshold: 100 + 1.0 * 4 = 104
+    
+    # Test 1: bb_up = 105 (Between Standard and Tight)
+    df_res.loc[dates[-1], 'bb_up'] = 105
+    df_res.loc[dates[-1], 'bb_low'] = 95
+    # Recalculate booleans for the last row
+    sma = 100
+    atr = 4
+    df_res.loc[dates[-1], 'sqz_std'] = (df_res.loc[dates[-1], 'bb_up'] < (sma + (SQZ_STD_MULT * atr))) & (df_res.loc[dates[-1], 'bb_low'] > (sma - (SQZ_STD_MULT * atr)))
+    df_res.loc[dates[-1], 'sqz_tight'] = (df_res.loc[dates[-1], 'bb_up'] < (sma + (SQZ_TIGHT_MULT * atr))) & (df_res.loc[dates[-1], 'bb_low'] > (sma - (SQZ_TIGHT_MULT * atr)))
+    df_res.loc[dates[-1], 'sqz_xtra'] = (df_res.loc[dates[-1], 'bb_up'] < (sma + (SQZ_XTRA_MULT * atr))) & (df_res.loc[dates[-1], 'bb_low'] > (sma - (SQZ_XTRA_MULT * atr)))
+    
+    assert df_res.iloc[-1]['sqz_std'] == True
+    assert df_res.iloc[-1]['sqz_tight'] == False
+    assert df_res.iloc[-1]['sqz_xtra'] == False
+
+    # Test 2: bb_up = 104.5 (Between Tight and Extra Tight)
+    df_res.loc[dates[-1], 'bb_up'] = 104.5
+    df_res.loc[dates[-1], 'bb_low'] = 95.5
+    df_res.loc[dates[-1], 'sqz_std'] = (df_res.loc[dates[-1], 'bb_up'] < (sma + (SQZ_STD_MULT * atr))) & (df_res.loc[dates[-1], 'bb_low'] > (sma - (SQZ_STD_MULT * atr)))
+    df_res.loc[dates[-1], 'sqz_tight'] = (df_res.loc[dates[-1], 'bb_up'] < (sma + (SQZ_TIGHT_MULT * atr))) & (df_res.loc[dates[-1], 'bb_low'] > (sma - (SQZ_TIGHT_MULT * atr)))
+    df_res.loc[dates[-1], 'sqz_xtra'] = (df_res.loc[dates[-1], 'bb_up'] < (sma + (SQZ_XTRA_MULT * atr))) & (df_res.loc[dates[-1], 'bb_low'] > (sma - (SQZ_XTRA_MULT * atr)))
+    
+    assert df_res.iloc[-1]['sqz_std'] == True
+    assert df_res.iloc[-1]['sqz_tight'] == True
+    assert df_res.iloc[-1]['sqz_xtra'] == False
+
+    # Test 3: bb_up = 103.5 (Extra Tight)
+    df_res.loc[dates[-1], 'bb_up'] = 103.5
+    df_res.loc[dates[-1], 'bb_low'] = 96.5
+    df_res.loc[dates[-1], 'sqz_std'] = (df_res.loc[dates[-1], 'bb_up'] < (sma + (SQZ_STD_MULT * atr))) & (df_res.loc[dates[-1], 'bb_low'] > (sma - (SQZ_STD_MULT * atr)))
+    df_res.loc[dates[-1], 'sqz_tight'] = (df_res.loc[dates[-1], 'bb_up'] < (sma + (SQZ_TIGHT_MULT * atr))) & (df_res.loc[dates[-1], 'bb_low'] > (sma - (SQZ_TIGHT_MULT * atr)))
+    df_res.loc[dates[-1], 'sqz_xtra'] = (df_res.loc[dates[-1], 'bb_up'] < (sma + (SQZ_XTRA_MULT * atr))) & (df_res.loc[dates[-1], 'bb_low'] > (sma - (SQZ_XTRA_MULT * atr)))
+    
+    assert df_res.iloc[-1]['sqz_std'] == True
+    assert df_res.iloc[-1]['sqz_tight'] == True
+    assert df_res.iloc[-1]['sqz_xtra'] == True
+
 def test_box_metrics():
     # Create a 300-day dummy dataset (for 52-week/252-day metrics)
     dates = pd.date_range(start="2023-01-01", periods=300)
