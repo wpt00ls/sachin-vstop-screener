@@ -101,3 +101,10 @@ def test_coiling_requires_tight_box_width():
     assert status_2 == "🌀 COILING"
     # This should fail in RED phase (currently checks for < 5)
     assert status_4 != "🌀 COILING", "Coiling should NOT be assigned if Box Width % is >= 3%"
+
+def test_vstop_multiplier_is_three():
+    """
+    Test that VStop uses a 3.0 ATR multiplier.
+    """
+    from vstop_screener import VSTOP_MULT
+    assert VSTOP_MULT == 3.0, "VStop multiplier should be exactly 3.0 for multi-bagger 'breathing room'"
