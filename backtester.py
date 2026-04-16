@@ -1,9 +1,11 @@
 import argparse
 import sys
+import os
 import yfinance as yf
 # Disable yfinance caching to avoid SQLite driver errors
 # yf.set_tz_cache_location(None)
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 from vstop_screener import calculate_master_logic, calculate_status, BENCHMARK
 import plotly.graph_objects as go
@@ -96,10 +98,13 @@ def generate_signals(df, ticker_name):
 
 def export_to_excel(df, ticker):
     """
-    Export the full historical signal/indicator series to an Excel file.
+    Export the full historical signal/indicator series to an Excel file in the results/ folder.
     """
+    # Ensure results directory exists
+    os.makedirs("results", exist_ok=True)
+    
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    fname = f"{ticker.replace('.NS', '')}_Signals_{timestamp}.xlsx"
+    fname = os.path.join("results", f"{ticker.replace('.NS', '')}_Signals_{timestamp}.xlsx")
     
     # Select and rename columns for clarity
     export_cols = {
@@ -124,10 +129,18 @@ def export_to_excel(df, ticker):
     # Filter only available columns
     available_cols = [c for c in export_cols.keys() if c in df.columns]
     df_export = df[available_cols].copy()
-    df_export = df_export.rename(columns=export_cols)
     
-    # Reorder (Date will be the index)
+    # Format Date (Index) to string date part only
+    df_export.index = df_export.index.strftime('%Y-%m-%d')
     df_export.index.name = 'Date'
+    
+    # Round numerical columns to 2 decimal places
+    num_cols = df_export.select_dtypes(include=[np.number]).columns
+    df_export[num_cols] = df_export[num_cols].round(2)
+    
+    # Rename and sort by date descending
+    df_export = df_export.rename(columns=export_cols)
+    df_export = df_export.sort_index(ascending=False)
     
     with pd.ExcelWriter(fname, engine='xlsxwriter') as writer:
         df_export.to_excel(writer, sheet_name='Signal History')
@@ -283,8 +296,8 @@ def main():
         print_report(args.ticker, trades, metrics)
         create_chart(df, trades, args.ticker)
         
-        if args.export:
-            export_to_excel(df, args.ticker)
+        # Export signal history by default
+        export_to_excel(df, args.ticker)
         
     except Exception as e:
         print(f"❌ Error: {e}")

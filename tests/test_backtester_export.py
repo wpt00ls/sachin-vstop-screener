@@ -36,7 +36,7 @@ def test_generate_signals_history_capture():
 
 def test_export_to_excel_functionality():
     """
-    Test that backtester has an export_to_excel function and it creates a file with correct columns.
+    Test that backtester has an export_to_excel function and it creates a file with correct columns and sorting.
     """
     import backtester
     import os
@@ -45,12 +45,12 @@ def test_export_to_excel_functionality():
     # Create dummy data
     dates = pd.date_range(start="2023-01-01", periods=10)
     df = pd.DataFrame({
-        'close': [100] * 10,
+        'close': [100.123] * 10,
         'status': ['Consolidating'] * 10,
         'squeeze_status': ['None'] * 10,
-        'vstop': [90] * 10,
+        'vstop': [90.456] * 10,
         'trend': [True] * 10,
-        'vstop_dist_pct': [10.0] * 10,
+        'vstop_dist_pct': [10.678] * 10,
         'volume': [1000] * 10,
         'vol_avg': [1000] * 10,
         'vol_multiple': [1.0] * 10,
@@ -60,13 +60,19 @@ def test_export_to_excel_functionality():
     fname = backtester.export_to_excel(df, "TEST_EXPORT.NS")
     
     assert os.path.exists(fname)
+    assert "results" in fname
     
-    # Read back and verify columns
+    # Read back and verify columns and sorting
     df_read = pd.read_excel(fname, sheet_name='Signal History')
+    assert 'Date' in df_read.columns
     assert 'Close' in df_read.columns
-    assert 'Status' in df_read.columns
-    assert 'VStop Distance %' in df_read.columns
-    assert 'Volume Multiple' in df_read.columns
+    
+    # Check rounding
+    assert df_read['Close'].iloc[0] == 100.12
+    assert df_read['VStop Distance %'].iloc[0] == 10.68
+    
+    # Check descending sort (index 0 should be latest date)
+    assert str(df_read['Date'].iloc[0]) == "2023-01-10"
     
     # Cleanup
     os.remove(fname)
