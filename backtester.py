@@ -1,6 +1,8 @@
 import argparse
 import sys
 import yfinance as yf
+# Disable yfinance caching to avoid SQLite driver errors
+# yf.set_tz_cache_location(None)
 import pandas as pd
 from datetime import datetime, timedelta
 from vstop_screener import calculate_master_logic, calculate_status, BENCHMARK
@@ -61,8 +63,8 @@ def generate_signals(df, ticker_name):
             exit_reason = None
             if not row['trend']:
                 exit_reason = "VStop Red"
-            elif 'ema50' in row and row['close'] < row['ema50']:
-                exit_reason = "Below EMA 50"
+            elif row.get('ema200_slope_neg_5d', False):
+                exit_reason = "Emergency Slope Stop"
                 
             if exit_reason:
                 exit_price = row['close']
