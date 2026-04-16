@@ -2,11 +2,13 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-import concurrent.futures
-
 # ==========================================
 # 1. CONFIGURATION
 # ==========================================
+# Disable yfinance caching to avoid SQLite driver errors
+import yfinance as yf
+yf.set_tz_cache_location(None)
+
 VSTOP_MULT = 3.0   # Structural trend setting for multi-baggers
 ATR_PERIOD = 20
 EMA_PERIODS = [50, 200] 
