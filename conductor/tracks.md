@@ -4,5 +4,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Strategy update and history strategy signal export to excel**
+- [~] **Track: Strategy update and history strategy signal export to excel**
 *Link: [./tracks/strategy_export_20260416/](./tracks/strategy_export_20260416/)*
