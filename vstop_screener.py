@@ -2,12 +2,13 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-# ==========================================
-# 1. CONFIGURATION
-# ==========================================
-# Disable yfinance caching to avoid SQLite driver errors
+import concurrent.futures
+import os
+
 import yfinance as yf
-yf.set_tz_cache_location(None)
+
+# yf.set_tz_cache_location(None)
+
 
 VSTOP_MULT = 3.0   # Structural trend setting for multi-baggers
 ATR_PERIOD = 20
@@ -196,11 +197,11 @@ def main():
 
     print("📡 Downloading Nifty 500 Data and Benchmark...")
     bench = yf.download(BENCHMARK, start=start_pt, auto_adjust=False, progress=False)
+    
     if isinstance(bench.columns, pd.MultiIndex): bench.columns = bench.columns.get_level_values(0)
     bench.columns = [str(c).lower() for c in bench.columns]
 
     data = yf.download(tickers, start=start_pt, auto_adjust=False, group_by='ticker', progress=True)
-
     results = []
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(audit_stock, t, data, bench) for t in tickers]
