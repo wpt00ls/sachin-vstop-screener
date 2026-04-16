@@ -221,9 +221,25 @@ def test_audit_stock():
     assert res is not None
     assert res['Ticker'] == 'RELIANCE'
     # Default state for flat data should be "COILING" or "Consolidating"
-    # In my dummy data: box_width_pct is 0, sqz_label will be "EXTRA TIGHT"
-    # (sqz_label in ["TIGHT", "EXTRA TIGHT"]) and box_width_pct < 5 -> "🌀 COILING"
-    assert res['Status'] == "🌀 COILING"
+    # (sqz_label in ["TIGHT", "EXTRA TIGHT"]) and box_width_pct < 3 -> "🌀 COILING"
+    # In this test data, box_high=102, box_low=98 (from previous rows)
+    # box_width_pct = (102-98)/98 * 100 = 4.08%
+    # 4.08 > 3, so it should be "Consolidating"
+    assert res['Status'] == "Consolidating"
+
+    # Now let's test COILING with tighter data
+    data_tight = {
+        ('RELIANCE.NS', 'Open'): [100.0] * 300,
+        ('RELIANCE.NS', 'High'): [100.5] * 300,
+        ('RELIANCE.NS', 'Low'): [99.5] * 300,
+        ('RELIANCE.NS', 'Close'): [100.0] * 300,
+        ('RELIANCE.NS', 'Volume'): [1000.0] * 300
+    }
+    full_data_tight = pd.DataFrame(data_tight, index=dates)
+    full_data_tight.columns = pd.MultiIndex.from_tuples(full_data_tight.columns)
+    # box_width_pct = (100.5-99.5)/99.5 * 100 = 1.005% < 3%
+    res_tight = audit_stock('RELIANCE.NS', full_data_tight, bench_df)
+    assert res_tight['Status'] == "🌀 COILING"
 
 def test_main_execution():
     # Mocking external calls in the main execution block

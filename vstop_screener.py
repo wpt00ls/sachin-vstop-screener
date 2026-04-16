@@ -13,6 +13,10 @@ EMA_PERIODS = [50, 200]
 VOL_MULT   = 1.5   
 BOX_LOOKBACK = 5   
 RSI_PERIOD = 14
+# Squeeze Intensity multipliers (Bollinger Bands < Mult * ATR)
+SQZ_STD_MULT   = 1.5
+SQZ_TIGHT_MULT = 1.2
+SQZ_XTRA_MULT  = 1.0
 BENCHMARK  = "^NSEI" 
 DATA_LOOKBACK = 450 
 
@@ -56,10 +60,10 @@ def calculate_master_logic(df, bench_df, vstop_mult=VSTOP_MULT, atr_period=ATR_P
     tr = pd.concat([df['high']-df['low'], abs(df['high']-df['close'].shift(1)), abs(df['low']-df['close'].shift(1))], axis=1).max(axis=1)
     atr_val = tr.rolling(20).mean() # Using 20 as period for ATR in squeeze
     
-    # Standard (1.5x), Tight (1.2x), Extra Tight (1.0x ATR)
-    df['sqz_std'] = (df['bb_up'] < (sma + (1.5 * atr_val))) & (df['bb_low'] > (sma - (1.5 * atr_val)))
-    df['sqz_tight'] = (df['bb_up'] < (sma + (1.2 * atr_val))) & (df['bb_low'] > (sma - (1.2 * atr_val)))
-    df['sqz_xtra'] = (df['bb_up'] < (sma + (1.0 * atr_val))) & (df['bb_low'] > (sma - (1.0 * atr_val)))
+    # Standard, Tight, Extra Tight ATR multipliers
+    df['sqz_std'] = (df['bb_up'] < (sma + (SQZ_STD_MULT * atr_val))) & (df['bb_low'] > (sma - (SQZ_STD_MULT * atr_val)))
+    df['sqz_tight'] = (df['bb_up'] < (sma + (SQZ_TIGHT_MULT * atr_val))) & (df['bb_low'] > (sma - (SQZ_TIGHT_MULT * atr_val)))
+    df['sqz_xtra'] = (df['bb_up'] < (sma + (SQZ_XTRA_MULT * atr_val))) & (df['bb_low'] > (sma - (SQZ_XTRA_MULT * atr_val)))
 
     # --- 3. Box & 52-Week Metrics ---
     df['box_high'] = df['high'].shift(1).rolling(window=box_lookback).max()
