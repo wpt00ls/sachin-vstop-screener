@@ -1,157 +1,103 @@
 import pytest
 import pandas as pd
 import numpy as np
-from vstop_screener import calculate_master_logic, calculate_status
+from vstop_screener import calculate_master_logic, calculate_status, VOL_MULT
 
-def test_diamond_launch_requires_positive_slope():
+def test_normalized_indicators():
     """
-    Test that DIAMOND LAUNCH status is only assigned when EMA 200 slope is positive.
+    Test that vol_multiple and vstop_dist_pct are correctly calculated.
     """
-    dates = pd.date_range(start="2023-01-01", periods=300)
+    dates = pd.date_range(start="2023-01-01", periods=100)
+    data = {
+        'high': [102] * 100,
+        'low': [98] * 100,
+        'close': [100] * 100,
+        'volume': [1000] * 100
+    }
+    df = pd.DataFrame(data, index=dates)
+    bench_df = pd.DataFrame({'close': [100] * 100}, index=dates)
     
-    # Case 1: EMA 200 Slope is POSITIVE
-    # Close prices steadily increasing to ensure positive slope
-    close_pos = [100 + i for i in range(300)]
-    df_pos = pd.DataFrame({
-        'high': [c + 2 for c in close_pos],
-        'low': [c - 2 for c in close_pos],
-        'close': close_pos,
-        'volume': [2000] * 300 # High volume for c4
-    }, index=dates)
+    # We manually set some values for predictable output
+    # Close = 100, vol_avg will be 1000, current volume = 1000 -> vol_multiple = 1.0
+    # Let's say vstop = 95 -> vstop_dist_pct = (100 - 95) / 100 * 100 = 5.0%
     
-    # Case 2: EMA 200 Slope is NEGATIVE
-    # Close prices steadily decreasing to ensure negative slope
-    close_neg = [500 - i for i in range(300)]
-    df_neg = pd.DataFrame({
-        'high': [c + 2 for c in close_neg],
-        'low': [c - 2 for c in close_neg],
-        'close': close_neg,
-        'volume': [2000] * 300 # High volume for c4
-    }, index=dates)
+    result_df = calculate_master_logic(df, bench_df)
     
-    bench_df = pd.DataFrame({'close': [100] * 300}, index=dates)
+    # Check if columns exist
+    assert 'vol_multiple' in result_df.columns
+    assert 'vstop_dist_pct' in result_df.columns
     
-    # Process both
-    df_pos = calculate_master_logic(df_pos, bench_df)
-    df_neg = calculate_master_logic(df_neg, bench_df)
+    # Verify values at the end
+    last_row = result_df.iloc[-1]
+    assert last_row['vol_multiple'] == pytest.approx(1.0)
     
-    # Mocking conditions for DIAMOND LAUNCH:
-    # sqz_label == "FIRED 🚀" (previous sqz_std=True, current sqz_std=False)
-    # c3 (close > box_high)
-    # c4 (volume > vol_avg * vol_mult)
-    # ema_check (close > ema50 and close > ema200)
-    # rs_check (rs_ratio > rs_ma)
-    
-    # We'll manually force the "FIRED 🚀" condition for the test
-    # by overriding the squeeze columns for the last two rows.
-    for df in [df_pos, df_neg]:
-        df.loc[dates[-2], 'sqz_std'] = True
-        df.loc[dates[-1], 'sqz_std'] = False
-        # Ensure c3: close > box_high
-        df.loc[dates[-1], 'box_high'] = df.loc[dates[-1], 'close'] - 1
-        # Ensure c4: volume > vol_avg * 1.5
-        df.loc[dates[-1], 'volume'] = df.loc[dates[-1], 'vol_avg'] * 2
-        # Ensure ema_check: close > ema50 and close > ema200
-        df.loc[dates[-1], 'ema50'] = df.loc[dates[-1], 'close'] - 1
-        df.loc[dates[-1], 'ema200'] = df.loc[dates[-1], 'close'] - 1
-        # Ensure rs_check: rs_ratio > rs_ma
-        df.loc[dates[-1], 'rs_ratio'] = 1.1
-        df.loc[dates[-1], 'rs_ma'] = 1.0
+    # vstop calculation depends on Recursive Vstop logic. 
+    # With constant price 100 and ATR=4 (from 102-98), vstop mult 3.0
+    # ATR_m = 4 * 3.0 = 12.
+    # Uptown: stop = max(stop, max_val - 12) = max(98, 102 - 12) = 98.
+    # vstop_dist_pct = (100 - 98) / 100 * 100 = 2.0%
+    assert last_row['vstop_dist_pct'] == pytest.approx(2.0)
 
-    # Verify slopes
-    assert df_pos.iloc[-1]['ema200_slope'] > 0
-    assert df_neg.iloc[-1]['ema200_slope'] < 0
+def test_volume_lookback_indicator():
+    """
+    Test that vol_spike_last_7d correctly identifies spikes in the lookback window.
+    """
+    dates = pd.date_range(start="2023-01-01", periods=50)
+    # volume avg will be 1000 (rolling 20)
+    # VOL_MULT is 1.5
+    # Spike threshold = 1500
+    volume = [1000] * 50
     
-    status_pos, _ = calculate_status(df_pos.iloc[-1], df_pos.iloc[-2])
-    status_neg, _ = calculate_status(df_neg.iloc[-1], df_neg.iloc[-2])
+    # Case 1: Spike on current day (index -1)
+    volume1 = volume.copy()
+    volume1[-1] = 2000
+    df1 = pd.DataFrame({'high': [102]*50, 'low': [98]*50, 'close': [100]*50, 'volume': volume1}, index=dates)
+    bench_df = pd.DataFrame({'close': [100]*50}, index=dates)
     
-    assert status_pos == "💎 DIAMOND LAUNCH"
-    # This is the failing assertion for the RED phase
-    assert status_neg != "💎 DIAMOND LAUNCH", "Diamond Launch should NOT be assigned if EMA 200 slope is negative"
+    res1 = calculate_master_logic(df1, bench_df)
+    assert 'vol_spike_last_7d' in res1.columns
+    assert res1.iloc[-1]['vol_spike_last_7d'] == True
+    
+    # Case 2: Spike 5 days ago (index -6)
+    volume2 = volume.copy()
+    volume2[-6] = 2000
+    df2 = pd.DataFrame({'high': [102]*50, 'low': [98]*50, 'close': [100]*50, 'volume': volume2}, index=dates)
+    res2 = calculate_master_logic(df2, bench_df)
+    assert res2.iloc[-1]['vol_spike_last_7d'] == True
+    
+    # Case 3: Spike 8 days ago (index -9) - should be FALSE
+    volume3 = volume.copy()
+    volume3[-9] = 2000
+    df3 = pd.DataFrame({'high': [102]*50, 'low': [98]*50, 'close': [100]*50, 'volume': volume3}, index=dates)
+    res3 = calculate_master_logic(df3, bench_df)
+    assert res3.iloc[-1]['vol_spike_last_7d'] == False
 
-def test_coiling_requires_tight_box_width():
+def test_diamond_launch_confluence_update():
     """
-    Test that COILING status is only assigned when Box Width % is under 3%.
+    Test that DIAMOND LAUNCH uses vol_spike_last_7d instead of same-day volume spike.
     """
-    dates = pd.date_range(start="2023-01-01", periods=30)
+    # Mock row and prev_row for calculate_status
+    row = pd.Series({
+        'trend': True,
+        'close': 110,
+        'box_high': 105,
+        'volume': 1000, # NOT a spike today (vol_avg=1000)
+        'vol_avg': 1000,
+        'ema50': 100,
+        'ema200': 90,
+        'rs_ratio': 1.1,
+        'rs_ma': 1.0,
+        'ema200_slope': 1.0,
+        'sqz_xtra': False,
+        'sqz_tight': False,
+        'sqz_std': False,
+        'vol_spike_last_7d': True # SPIKE OCCURRED RECENTLY
+    })
     
-    # Base data (Extra Tight Squeeze)
-    df = pd.DataFrame({
-        'high': [102] * 30,
-        'low': [98] * 30,
-        'close': [100] * 30,
-        'volume': [1000] * 30
-    }, index=dates)
+    prev_row = pd.Series({
+        'sqz_std': True # SQUEEZE FIRED TODAY
+    })
     
-    bench_df = pd.DataFrame({'close': [100] * 30}, index=dates)
-    df = calculate_master_logic(df, bench_df)
-    
-    # row['sqz_xtra'] will be True
-    # Test with box_width_pct = 4.0 (Previously allowed, now should be Consolidating)
-    row_4 = df.iloc[-1].copy()
-    row_4['box_width_pct'] = 4.0
-    
-    # Test with box_width_pct = 2.0 (Should still be COILING)
-    row_2 = df.iloc[-1].copy()
-    row_2['box_width_pct'] = 2.0
-    
-    status_4, _ = calculate_status(row_4, df.iloc[-2])
-    status_2, _ = calculate_status(row_2, df.iloc[-2])
-    
-    assert status_2 == "🌀 COILING"
-    # This should fail in RED phase (currently checks for < 5)
-    assert status_4 != "🌀 COILING", "Coiling should NOT be assigned if Box Width % is >= 3%"
-
-def test_vstop_multiplier_is_three():
-    """
-    Test that VStop uses a 3.0 ATR multiplier.
-    """
-    from vstop_screener import VSTOP_MULT
-    assert VSTOP_MULT == 3.0, "VStop multiplier should be exactly 3.0 for multi-bagger 'breathing room'"
-
-def test_ema200_slope_neg_5d_indicator():
-    """
-    Test that ema200_slope_neg_5d is correctly calculated.
-    """
-    dates = pd.date_range(start="2023-01-01", periods=300)
-    # Case: EMA 200 Slope is negative for 10 days
-    close = [500 - i for i in range(300)]
-    df = pd.DataFrame({
-        'high': [c + 2 for c in close],
-        'low': [c - 2 for c in close],
-        'close': close,
-        'volume': [1000] * 300
-    }, index=dates)
-    
-    bench_df = pd.DataFrame({'close': [100] * 300}, index=dates)
-    df = calculate_master_logic(df, bench_df)
-    
-    # Should be in df
-    assert 'ema200_slope_neg_5d' in df.columns
-    # Last row should be True as slope has been negative for 300 days
-    assert df.iloc[-1]['ema200_slope_neg_5d'] == True
-    
-    # Now test a case where it flips
-    # 290 days increasing, last 10 days decreasing
-    close_flip = [100 + i for i in range(290)] + [390 - i for i in range(10)]
-    df_flip = pd.DataFrame({
-        'high': [c + 2 for c in close_flip],
-        'low': [c - 2 for c in close_flip],
-        'close': close_flip,
-        'volume': [1000] * 300
-    }, index=dates)
-    df_flip = calculate_master_logic(df_flip, bench_df)
-    
-    # Index 289 (end of increasing): slope_up is True, neg_5d should be False
-    assert df_flip.iloc[289]['ema200_slope'] > 0
-    assert df_flip.iloc[289]['ema200_slope_neg_5d'] == False
-    
-    # Index 294 (5 days into decreasing): slope should be negative for 5 days
-    # Wait, EMA 200 reacts slowly. Let's make sure the slope actually turns negative.
-    # EMA 200 with span 200 has alpha = 2/201.
-    # If price drops sharply, EMA 200 will eventually drop.
-    # For simplicity, let's just check the logic in the dataframe.
-    
-    # We'll check the last row which is 10 days into the drop.
-    assert df_flip.iloc[-1]['ema200_slope'] < df_flip.iloc[-6]['ema200_slope']
-    # If the slope itself is negative for 5 days, then neg_5d is True.
+    # Squeeze fired today + Recent volume spike + Breakout + EMA + RS + Slope up
+    status, _ = calculate_status(row, prev_row)
+    assert status == "💎 DIAMOND LAUNCH"

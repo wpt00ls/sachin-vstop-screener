@@ -53,6 +53,9 @@ def calculate_master_logic(df, bench_df, vstop_mult=VSTOP_MULT, atr_period=ATR_P
         df['ema200_slope_neg_5d'] = df['ema200_slope_neg_5d'].fillna(False)
         
     df['vol_avg'] = df['volume'].rolling(20).mean()
+    df['vol_multiple'] = df['volume'] / df['vol_avg']
+    df['vol_spike_last_7d'] = (df['volume'] > (df['vol_avg'] * VOL_MULT)).rolling(window=7).max().fillna(0).astype(bool)
+    
     df['rs_ratio'] = df['close'] / bench_df['close'].reindex(df.index).ffill()
     df['rs_ma'] = df['rs_ratio'].rolling(50).mean()
     
@@ -107,6 +110,7 @@ def calculate_master_logic(df, bench_df, vstop_mult=VSTOP_MULT, atr_period=ATR_P
         stops[i], trends[i] = stop, uptrend
         
     df['vstop'], df['trend'] = stops, trends
+    df['vstop_dist_pct'] = ((df['close'] - df['vstop']) / df['close']) * 100
     return df
 
 def calculate_status(row, prev_row, vol_mult=VOL_MULT, ema_periods=EMA_PERIODS):
@@ -124,7 +128,7 @@ def calculate_status(row, prev_row, vol_mult=VOL_MULT, ema_periods=EMA_PERIODS):
     # Confluence Check Results
     c1 = row['trend']
     c3 = row['close'] > row['box_high']
-    c4 = row['volume'] > (row['vol_avg'] * vol_mult)
+    c4 = row.get('vol_spike_last_7d', row['volume'] > (row['vol_avg'] * vol_mult))
     ema_check = all(row['close'] > row[f'ema{p}'] for p in ema_periods)
     rs_check = (row['rs_ratio'] > row['rs_ma'])
     # Check if ema200_slope exists in row
