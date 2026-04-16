@@ -187,6 +187,8 @@ def audit_stock(ticker, full_data, bench_df):
             "52W High": round(today['hi_52w'], 2),
             "52W Low": round(today['lo_52w'], 2),
             "EMA 200 Slope": round(today.get('ema200_slope', 0), 3),
+            "VStop Distance %": round(today['vstop_dist_pct'], 2),
+            "Volume Multiple": round(today['vol_multiple'], 2),
             "Chart Link": f"https://www.tradingview.com/chart/?symbol=NSE:{ticker.replace('.NS', '')}"
         }
     except Exception:
