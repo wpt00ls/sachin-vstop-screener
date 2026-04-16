@@ -4,7 +4,7 @@
 - [x] Task: Update `calculate_status` in `vstop_screener.py` to require `slope_up` (EMA 200) for "💎 DIAMOND LAUNCH" cfa8e3c
 - [x] Task: Update `calculate_status` in `vstop_screener.py` to change the Box Width threshold for "🌀 COILING" from 5 to 3. 12fa8f6
 - [x] Task: Verify and configure `calculate_master_logic` to use ATR multipliers 1.0, 1.2, and 1.5 specifically for Squeeze logic (buy precursor). 0a6c485
-- [ ] Task: Verify and configure `vstop_mult` to use a 3.0 ATR multiplier specifically for the VStop logic (sell/stop).
+- [x] Task: Verify and configure `vstop_mult` to use a 3.0 ATR multiplier specifically for the VStop logic (sell/stop). f4926b7
 - [ ] Task: Update `calculate_master_logic` in `vstop_screener.py` to include a rolling 5-day negative EMA 200 slope indicator.
 - [ ] Task: Update tests in `tests/test_vstop_screener.py` to verify the new status logic and different ATR multiples.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Screener Status Logic Updates' (Protocol in workflow.md)
