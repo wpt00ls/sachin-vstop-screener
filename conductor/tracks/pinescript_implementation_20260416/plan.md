@@ -10,14 +10,14 @@
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Core Indicator Implementation' (Protocol in workflow.md)
 
 ## Phase 2: Strategy Logic & MTF Support
-- [ ] Task: Implement MTF inputs for D/W/M for all core indicators.
-- [ ] Task: Implement Signal Confluence logic (DIAMOND LAUNCH, SQUEEZE FIRE, etc.).
-- [ ] Task: Implement Strategy Execution (buy/sell) using Pine Script `strategy.*` functions.
-- [ ] Task: Implement Emergency Slope Stop and VStop Red exit logic.
+- [~] Task: Implement MTF inputs for D/W/M for all core indicators.
+- [~] Task: Implement Signal Confluence logic (DIAMOND LAUNCH, SQUEEZE FIRE, etc.).
+- [~] Task: Implement Strategy Execution (buy/sell) using Pine Script `strategy.*` functions.
+- [~] Task: Implement Emergency Slope Stop and VStop Red exit logic.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Strategy Logic & MTF Support' (Protocol in workflow.md)
 
 ## Phase 3: Visualization & Dashboard
-- [ ] Task: Implement Bar/Background coloring based on market states.
-- [ ] Task: Create an on-chart Dashboard (Table) showing status, slope, and RS metrics.
-- [ ] Task: Finalize documentation and user inputs for the script.
+- [~] Task: Implement Bar/Background coloring based on market states.
+- [~] Task: Create an on-chart Dashboard (Table) showing status, slope, and RS metrics.
+- [~] Task: Finalize documentation and user inputs for the script.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Visualization & Dashboard' (Protocol in workflow.md)

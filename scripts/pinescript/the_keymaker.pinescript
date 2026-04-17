@@ -1,280 +1,527 @@
 // =============================================================================
 // THE KEYMAKER — "Four Pillars" Multi-Bagger Strategy
-// Version    : 1.0.0 (Phase 1 — Core Indicators)
+// Version    : 2.0.0 (All Phases — Core Indicators + Strategy + Visualization)
 // Pine Script: v6
-// Source      : Translated from vstop_screener.py (Python reference implementation)
-// =============================================================================
-// PHASE 1 INDICATORS:
-//   1. Recursive VStop          (3.0× ATR, period 20)
-//   2. Squeeze Pro              (Standard / Tight / Extra Tight)
-//   3. EMA 50 & 200             + EMA 200 Slope (20-day % change)
-//   4. RS Ratio vs. Benchmark   + RS vs. Average
-//   5. Darvas Box / Box Breakout
-//   6. 7-Day Volume Spike
+// Source      : vstop_screener.py  ← HOLY GRAIL / SOURCE OF TRUTH
+//
+// PHASES IMPLEMENTED:
+//   Phase 1 — Core Indicators  (VStop, Squeeze Pro, EMA+Slope, RS, Box, Vol)
+//   Phase 2 — Strategy Logic   (DIAMOND LAUNCH / SQUEEZE FIRE entries, exits)
+//   Phase 3 — Visualization    (Bar Colors, Squeeze Background, Labels, Table)
+//
+// NOTE — ATR Calculation:
+//   Python uses tr.rolling(N).mean() (Simple Moving Average).
+//   Pine's ta.atr() uses Wilder's RMA. To match Python exactly, this script
+//   uses a custom f_atr_sma() function in all ATR calculations (VStop + Squeeze).
 // =============================================================================
 
 //@version=6
-indicator(title      = "The KeyMaker — Four Pillars",
-          shorttitle = "KeyMaker",
-          overlay    = true,
-          max_lines_count = 500,
-          max_labels_count = 500)
+strategy(
+     title             = "The KeyMaker — Four Pillars",
+     shorttitle        = "KeyMaker",
+     overlay           = true,
+     default_qty_type  = strategy.percent_of_equity,
+     default_qty_value = 10,
+     commission_type   = strategy.commission.percent,
+     commission_value  = 0.1,
+     slippage          = 2,
+     max_lines_count   = 500,
+     max_labels_count  = 500,
+     max_boxes_count   = 500)
 
-// =============================================================================
-// ── SECTION 1: USER INPUTS
-// =============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 1 — USER INPUTS
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ── VStop
-var string GRP_VSTOP = "▶ VStop Settings"
-i_vstop_mult   = input.float(3.0,  title = "VStop ATR Multiplier",  group = GRP_VSTOP, minval = 0.1, step = 0.1)
-i_vstop_period = input.int  (20,   title = "VStop ATR Period",       group = GRP_VSTOP, minval = 1)
+var string G_VS = "▶ VStop"
+i_vs_mult    = input.float(3.0, "ATR Multiplier",           group = G_VS, minval = 0.1,  step = 0.1)
+i_vs_period  = input.int  (20,  "ATR Period (SMA)",         group = G_VS, minval = 1)
 
-// ── Squeeze Pro
-var string GRP_SQZ = "▶ Squeeze Pro Settings"
-i_sqz_bb_len   = input.int  (20,   title = "BB / ATR Length",        group = GRP_SQZ, minval = 1)
-i_sqz_bb_mult  = input.float(2.0,  title = "BB StdDev Multiplier",   group = GRP_SQZ, minval = 0.1, step = 0.1)
-i_sqz_std_mult = input.float(1.5,  title = "Standard Sqz Threshold", group = GRP_SQZ, minval = 0.1, step = 0.1)
-i_sqz_tgt_mult = input.float(1.2,  title = "Tight Sqz Threshold",    group = GRP_SQZ, minval = 0.1, step = 0.1)
-i_sqz_xtr_mult = input.float(1.0,  title = "Extra Tight Threshold",  group = GRP_SQZ, minval = 0.1, step = 0.1)
+var string G_SQ = "▶ Squeeze Pro"
+i_sq_len     = input.int  (20,  "BB / Keltner Length",      group = G_SQ, minval = 1)
+i_sq_bb      = input.float(2.0, "BB StdDev Mult",           group = G_SQ, minval = 0.1, step = 0.1)
+i_sq_std     = input.float(1.5, "Standard Sqz Threshold",   group = G_SQ, minval = 0.1, step = 0.1)
+i_sq_tgt     = input.float(1.2, "Tight Sqz Threshold",      group = G_SQ, minval = 0.1, step = 0.1)
+i_sq_xtr     = input.float(1.0, "Extra Tight Threshold",    group = G_SQ, minval = 0.1, step = 0.1)
 
-// ── EMAs & Slope
-var string GRP_EMA = "▶ EMA & Slope Settings"
-i_ema_fast        = input.int(50,  title = "EMA Fast Period",               group = GRP_EMA, minval = 1)
-i_ema_slow        = input.int(200, title = "EMA Slow Period",               group = GRP_EMA, minval = 1)
-i_ema_slope_len   = input.int(20,  title = "EMA 200 Slope Lookback (bars)", group = GRP_EMA, minval = 1)
-i_slope_neg_days  = input.int(5,   title = "Emergency Slope Stop (neg days)", group = GRP_EMA, minval = 1)
+var string G_EM = "▶ EMA & Slope"
+i_em_fast    = input.int  (50,  "EMA Fast (50)",            group = G_EM, minval = 1)
+i_em_slow    = input.int  (200, "EMA Slow (200)",           group = G_EM, minval = 1)
+i_em_slen    = input.int  (20,  "Slope Lookback (bars)",    group = G_EM, minval = 1)
+i_em_edays   = input.int  (5,   "Emergency Stop Days",      group = G_EM, minval = 1)
 
-// ── Relative Strength
-var string GRP_RS = "▶ Relative Strength Settings"
-i_benchmark    = input.symbol("NSE:NIFTY", title = "Benchmark Symbol", group = GRP_RS)
-i_rs_ma_len    = input.int(50,             title = "RS Moving Average Period", group = GRP_RS, minval = 1)
+var string G_RS = "▶ Relative Strength"
+i_rs_bench   = input.symbol("NSE:NIFTY", "Benchmark Symbol", group = G_RS)
+i_rs_len     = input.int  (50,           "RS SMA Period",    group = G_RS, minval = 1)
 
-// ── Darvas Box
-var string GRP_BOX = "▶ Darvas Box Settings"
-i_box_lookback = input.int(5,  title = "Box Lookback (bars)", group = GRP_BOX, minval = 1)
+var string G_BX = "▶ Darvas Box"
+i_bx_lb      = input.int  (5,  "Box Lookback (bars)",       group = G_BX, minval = 1)
 
-// ── Volume
-var string GRP_VOL = "▶ Volume Settings"
-i_vol_avg_len  = input.int  (20,  title = "Volume Average Period",   group = GRP_VOL, minval = 1)
-i_vol_mult     = input.float(1.5, title = "Volume Spike Multiplier", group = GRP_VOL, minval = 0.1, step = 0.1)
-i_vol_spike_wd = input.int  (7,   title = "Volume Spike Window (bars)", group = GRP_VOL, minval = 1)
+var string G_VL = "▶ Volume"
+i_vl_len     = input.int  (20,  "Vol Avg Period (SMA)",     group = G_VL, minval = 1)
+i_vl_mult    = input.float(1.5, "Spike Multiplier",         group = G_VL, minval = 0.1, step = 0.1)
+i_vl_wd      = input.int  (7,   "Spike Window (bars)",      group = G_VL, minval = 1)
 
-// =============================================================================
-// ── SECTION 2: RECURSIVE VSTOP
-// Translated from: calculate_master_logic() — lines 83–113 of vstop_screener.py
+var string G_MTF = "▶ Multi-Timeframe"
+i_mtf        = input.timeframe("", "MTF Override (blank = chart TF)", group = G_MTF)
+
+var string G_VIZ = "▶ Visualization"
+i_show_lbl   = input.bool(true, "Show Signal Labels",             group = G_VIZ)
+i_show_tbl   = input.bool(true, "Show Dashboard Table",           group = G_VIZ)
+i_show_bg    = input.bool(true, "Show Squeeze Background",        group = G_VIZ)
+i_show_barc  = input.bool(true, "Color Bars by Market Status",    group = G_VIZ)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 2 — CORE INDICATOR FUNCTIONS
+// Each indicator is a self-contained function so request.security() can
+// evaluate it at any timeframe for MTF support (Phase 2).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── 2a. SMA-based ATR (matches Python: tr.rolling(N).mean())
+// Python reference: line 68–69 and 85 of vstop_screener.py
+// Ta.atr() uses Wilder's RMA; this function uses SMA to match Python exactly.
+f_atr_sma(period) =>
+    float tr = math.max(high - low,
+                 math.max(math.abs(high - close[1]),
+                          math.abs(low  - close[1])))
+    ta.sma(tr, period)
+
+// ── 2b. Recursive VStop
+// Source: calculate_master_logic() lines 83–113, vstop_screener.py
+// Python for-loop with (uptrend, max_val, stop) mutable state is replicated
+// exactly with Pine Script 'var' variables, which persist bar-to-bar.
 //
-// Python logic recap:
-//   uptrend, max_val, stop initialised at first valid ATR bar.
-//   For each bar:
-//     if uptrend:
-//       max_val = max(max_val, high)
-//       stop    = max(stop, max_val - atr * mult)
-//       if close < stop → flip downtrend, stop = low + atr * mult
-//     else:
-//       stop = min(stop, low + atr * mult)
-//       if close > stop → flip uptrend, max_val = high, stop = high - atr * mult
-//
-// In Pine Script v6, `var` variables persist bar-to-bar, directly
-// replicating the Python for-loop state machine without any recursion.
-// =============================================================================
+// VStop BUY  signal → vstop_up flips false→true  ("VStop Green")
+// VStop SELL signal → vstop_up flips true→false  ("VStop Red")
+// These are TWO DIFFERENT events from the SAME indicator state.
+f_vstop(period, mult) =>
+    float atr_m = f_atr_sma(period) * mult
+    var float _v = na    // trailing stop level
+    var bool  _u = true  // uptrend flag
+    var float _m = na    // running max (for uptrend trailing)
+    if not na(atr_m)
+        if na(_v)
+            // First valid bar — initialize (mirrors Python start_idx init, line 95)
+            _u := true
+            _m := high
+            _v := low
+        else if _u
+            // Uptrend: trail stop below running high
+            _m := math.max(_m, high)
+            _v := math.max(_v, _m - atr_m)
+            if close < _v
+                // Flip to downtrend (lines 104–105)
+                _u := false
+                _v := low + atr_m
+        else
+            // Downtrend: trail stop above running low
+            _v := math.min(_v, low + atr_m)
+            if close > _v
+                // Flip to uptrend (lines 108–109)
+                _u  := true
+                _m  := high
+                _v  := high - atr_m
+    [_v, _u]
 
-float atr_vstop = ta.atr(i_vstop_period)
-float atr_m     = atr_vstop * i_vstop_mult    // atr * multiplier
+// ── 2c. Squeeze Pro
+// Source: calculate_master_logic() lines 62–74, vstop_screener.py
+// BB (sma±2σ) vs. Keltner Channel (sma±mult×ATR_SMA) at three intensity levels.
+// sqz_fired = standard squeeze WAS on last bar, now OFF → momentum release.
+f_squeeze(len, bb_mult, std_m, tgt_m, xtr_m) =>
+    float sma  = ta.sma(close, len)
+    float std  = ta.stdev(close, len)
+    float bb_h = sma + bb_mult * std
+    float bb_l = sma - bb_mult * std
+    float atr  = f_atr_sma(len)
+    bool s_std = bb_h < sma + std_m * atr and bb_l > sma - std_m * atr
+    bool s_tgt = bb_h < sma + tgt_m * atr and bb_l > sma - tgt_m * atr
+    bool s_xtr = bb_h < sma + xtr_m * atr and bb_l > sma - xtr_m * atr
+    // FIRED: prev bar had standard squeeze, current bar does NOT (transition only)
+    // Source: line 125 — prev_row['sqz_std'] and not row['sqz_std']
+    bool fired = s_std[1] and not s_std
+    [s_std, s_tgt, s_xtr, fired]
 
-var float vstop_val = na
-var bool  vstop_up  = true
-var float max_val   = na
+// ── 2d. EMA + Slope
+// Source: calculate_master_logic() lines 44–53, vstop_screener.py
+// slope       = (ema200 - ema200[20]) / ema200[20] * 100   (line 51)
+// emerg_stop  = slope < 0 for ALL last 5 bars               (line 52)
+f_ema(fast, slow, slope_lb, emerg_d) =>
+    float ef    = ta.ema(close, fast)
+    float es    = ta.ema(close, slow)
+    float slope = (es - es[slope_lb]) / es[slope_lb] * 100
+    bool sl_pos = slope > 0
+    // (slope<0).rolling(5).min()==1 → min of binary is 1 only when ALL are 1
+    bool emerg  = ta.lowest(slope < 0 ? 1 : 0, emerg_d) == 1
+    [ef, es, slope, sl_pos, emerg]
 
-if not na(atr_m)
-    if na(vstop_val)
-        // Initialise on first valid ATR bar (mirrors Python start_idx)
-        vstop_up  := true
-        max_val   := high
-        vstop_val := low
+// ── 2e. Darvas Box
+// Source: calculate_master_logic() lines 76–79, vstop_screener.py
+// high[1] = shift(1) in Python; ta.highest over shifted series = rolling max of prior bars.
+f_box(lb) =>
+    float bh  = ta.highest(high[1], lb)
+    float bl  = ta.lowest (low[1],  lb)
+    float bw  = (bh - bl) / bl * 100
+    bool  brk = close > bh          // line 130: row['close'] > row['box_high']
+    [bh, bl, bw, brk]
 
-    else if vstop_up
-        max_val   := math.max(max_val,   high)
-        vstop_val := math.max(vstop_val, max_val - atr_m)
-        if close < vstop_val
-            vstop_up  := false
-            vstop_val := low + atr_m
+// ── 2f. Volume Spike
+// Source: calculate_master_logic() line 57, vstop_screener.py
+// vol_spike_last_7d = (volume > vol_avg * 1.5).rolling(7).max()
+// ta.highest(bool→int, 7)==1 replicates rolling max over boolean series.
+f_volume(v_len, v_mult, v_wd) =>
+    float va  = ta.sma(volume, v_len)
+    float vm  = volume / va
+    bool  spk = volume > va * v_mult
+    bool  s7d = ta.highest(spk ? 1 : 0, v_wd) == 1
+    [va, vm, s7d]
 
-    else
-        vstop_val := math.min(vstop_val, low + atr_m)
-        if close > vstop_val
-            vstop_up  := true
-            max_val   := high
-            vstop_val := high - atr_m
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 3 — COMPUTE INDICATORS WITH OPTIONAL MTF SUPPORT (Phase 2)
+// When MTF override is set, all stateful indicators are evaluated at the
+// target timeframe via request.security(). Volume + RS stay at chart TF.
+// ─────────────────────────────────────────────────────────────────────────────
 
-// VStop distance % from close (mirrors: vstop_dist_pct in Python)
-float vstop_dist_pct = (close - vstop_val) / close * 100
+// Resolved timeframe: MTF override when set, otherwise current chart TF.
+// Using request.security with timeframe.period is equivalent to direct access
+// but lets us use a single code path for both cases cleanly.
+string tf = str.length(i_mtf) > 0 ? i_mtf : timeframe.period
 
-// =============================================================================
-// ── SECTION 3: SQUEEZE PRO
-// Translated from: calculate_master_logic() — lines 62–74 of vstop_screener.py
-//
-// Python:
-//   sma  = close.rolling(20).mean()
-//   std  = close.rolling(20).std()
-//   bb_up  = sma + 2.0 * std
-//   bb_low = sma - 2.0 * std
-//   atr    = tr.rolling(20).mean()   ← same window as BB
-//   sqz_std  = bb_up < sma + 1.5*atr  AND  bb_low > sma - 1.5*atr
-//   sqz_tight= bb_up < sma + 1.2*atr  AND  bb_low > sma - 1.2*atr
-//   sqz_xtra = bb_up < sma + 1.0*atr  AND  bb_low > sma - 1.0*atr
-// =============================================================================
+// VStop
+[vstop_val, vstop_up] = request.security(
+     syminfo.tickerid, tf,
+     f_vstop(i_vs_period, i_vs_mult),
+     lookahead = barmerge.lookahead_off)
 
-float sma_sqz    = ta.sma(close, i_sqz_bb_len)
-float std_sqz    = ta.stdev(close, i_sqz_bb_len)
-float bb_upper   = sma_sqz + i_sqz_bb_mult * std_sqz
-float bb_lower   = sma_sqz - i_sqz_bb_mult * std_sqz
-float atr_sqz    = ta.atr(i_sqz_bb_len)             // Keltner ATR (same period as BB)
+// Squeeze Pro
+[sqz_std, sqz_tgt, sqz_xtr, sqz_fired] = request.security(
+     syminfo.tickerid, tf,
+     f_squeeze(i_sq_len, i_sq_bb, i_sq_std, i_sq_tgt, i_sq_xtr),
+     lookahead = barmerge.lookahead_off)
 
-// Keltner channel bands per squeeze threshold
-float kc_std_hi  = sma_sqz + i_sqz_std_mult * atr_sqz
-float kc_std_lo  = sma_sqz - i_sqz_std_mult * atr_sqz
-float kc_tgt_hi  = sma_sqz + i_sqz_tgt_mult * atr_sqz
-float kc_tgt_lo  = sma_sqz - i_sqz_tgt_mult * atr_sqz
-float kc_xtr_hi  = sma_sqz + i_sqz_xtr_mult * atr_sqz
-float kc_xtr_lo  = sma_sqz - i_sqz_xtr_mult * atr_sqz
+// EMA + Slope
+[ema_fast, ema_slow, ema200_slope, slope_pos, emerg_stop] = request.security(
+     syminfo.tickerid, tf,
+     f_ema(i_em_fast, i_em_slow, i_em_slen, i_em_edays),
+     lookahead = barmerge.lookahead_off)
 
-// Squeeze states: BB fully inside Keltner → squeeze is ON
-bool sqz_std   = bb_upper < kc_std_hi and bb_lower > kc_std_lo
-bool sqz_tight = bb_upper < kc_tgt_hi and bb_lower > kc_tgt_lo
-bool sqz_xtra  = bb_upper < kc_xtr_hi and bb_lower > kc_xtr_lo
+// Darvas Box
+[box_high, box_low, box_width, box_brk] = request.security(
+     syminfo.tickerid, tf,
+     f_box(i_bx_lb),
+     lookahead = barmerge.lookahead_off)
 
-// Squeeze FIRED: standard squeeze was ON last bar, now OFF
-// Mirrors Python: prev_row['sqz_std'] and not row['sqz_std']
-bool sqz_fired = sqz_std[1] and not sqz_std
+// Volume — always at chart TF (no meaningful MTF equivalent for intraday spikes)
+[vol_avg, vol_multiple, vol_spike_7d] = f_volume(i_vl_len, i_vl_mult, i_vl_wd)
 
-// =============================================================================
-// ── SECTION 4: EMA 50, EMA 200 & EMA 200 SLOPE
-// Translated from: calculate_master_logic() — lines 44–53 of vstop_screener.py
-//
-// Python:
-//   ema50  = close.ewm(span=50,  adjust=False).mean()
-//   ema200 = close.ewm(span=200, adjust=False).mean()
-//   ema200_slope = (ema200 - ema200.shift(20)) / ema200.shift(20) * 100
-//   ema200_slope_neg_5d = (ema200_slope < 0).rolling(5).min() == 1
-// =============================================================================
+// Relative Strength — always at chart TF.
+// RS = close / benchmark_close (line 59); rs_ma = rs_ratio.rolling(50).mean() (line 60)
+// NOTE: benchmark uses timeframe.period (chart TF) to match Python's daily resolution.
+float bench_close  = request.security(i_rs_bench, timeframe.period, close,
+                          lookahead = barmerge.lookahead_off)
+float rs_ratio     = close / bench_close
+float rs_ma_val    = ta.sma(rs_ratio, i_rs_len)
+bool  rs_ok        = rs_ratio > rs_ma_val   // line 133: rs_check
 
-float ema_fast_val = ta.ema(close, i_ema_fast)
-float ema_slow_val = ta.ema(close, i_ema_slow)
+// Derived
+float vstop_dist   = (close - vstop_val) / close * 100  // line 113
+bool  ema_check    = close > ema_fast and close > ema_slow  // line 132 (EMA 50 + 200)
 
-// EMA 200 Slope: 20-bar % change
-float ema200_slope     = (ema_slow_val - ema_slow_val[i_ema_slope_len]) / ema_slow_val[i_ema_slope_len] * 100
-bool  slope_positive   = ema200_slope > 0
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 4 — STATUS / CONFLUENCE LOGIC  (Phase 2)
+// FAITHFULLY translated from calculate_status() lines 116–149, vstop_screener.py
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Emergency Slope Stop: slope has been negative for i_slope_neg_days consecutive bars
-// Python: (ema200_slope < 0).rolling(5).min() == 1
-// → True when ALL bars in the last 5 have negative slope
-bool emergency_slope_stop = ta.lowest(ema200_slope < 0 ? 1 : 0, i_slope_neg_days) == 1
+// Squeeze label — priority: Extra Tight > Tight > Standard > Fired > None
+// Source: lines 118–126
+string sqz_label =
+     sqz_xtr   ? "EXTRA TIGHT" :
+     sqz_tgt   ? "TIGHT"       :
+     sqz_std   ? "Standard"    :
+     sqz_fired ? "FIRED 🚀"   : "None"
 
-// EMA filter: close must be above both EMAs
-bool ema_check = close > ema_fast_val and close > ema_slow_val
+// Confluence flags (lines 129–135)
+bool c1 = vstop_up    // Pillar 1: VStop Green (trend == True in Python)
+bool c3 = box_brk     // Pillar 3: Box Breakout (close > box_high)
+bool c4 = vol_spike_7d // Pillar 4: Volume spike within 7-bar window
+// c5 = ema_check      // close > EMA50 AND close > EMA200
+// c6 = rs_ok          // rs_ratio > rs_ma
+// c7 = slope_pos      // ema200_slope > 0
 
-// =============================================================================
-// ── SECTION 5: RELATIVE STRENGTH (RS RATIO & RS VS. AVG)
-// Translated from: calculate_master_logic() — lines 59–60 of vstop_screener.py
-//
-// Python:
-//   rs_ratio = close / bench_df['close'].reindex(df.index).ffill()
-//   rs_ma    = rs_ratio.rolling(50).mean()
-// =============================================================================
+// Market Status — lifecycle ranking (lines 138–147)
+// DIAMOND LAUNCH: squeeze fired + ALL four pillars confirmed
+// SQUEEZE FIRE  : squeeze fired, partial confluence
+// COILING       : tight/extra-tight squeeze with narrow box (< 3%)
+// TRENDING      : uptrend + RS outperforming + slope rising
+string mkt_status =
+     (sqz_fired and c3 and c4 and ema_check and rs_ok and slope_pos) ? "DIAMOND LAUNCH" :
+     sqz_fired                                                         ? "SQUEEZE FIRE"  :
+     ((sqz_tgt or sqz_xtr) and box_width < 3.0)                       ? "COILING"       :
+     (c1 and rs_ok and slope_pos)                                      ? "TRENDING"      :
+     "Consolidating"
 
-// Fetch benchmark close on the same timeframe as the chart
-float bench_close = request.security(i_benchmark, timeframe.period, close, lookahead = barmerge.lookahead_off)
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 5 — SIGNAL LOGIC  (Phase 2)
+// BUY  signals: DIAMOND LAUNCH / SQUEEZE FIRE (momentum) + VStop Green (trend)
+// SELL signals: VStop Red (primary exit) + Emergency Slope Stop (override exit)
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Relative Strength ratio of stock vs. benchmark
-float rs_ratio    = close / bench_close
+// VStop direction change — these are the raw buy/sell trigger events
+// "VStop for buy and sell is different" = these are two separate flag edges:
+//   Buy : VStop was red last bar, turns GREEN this bar → uptrend confirmation
+//   Sell: VStop was green last bar, turns RED this bar → downtrend confirmation
+bool vstop_buy  = vstop_up  and not vstop_up[1]   // Green edge → long entry
+bool vstop_sell = not vstop_up and vstop_up[1]     // Red edge  → long exit
 
-// RS vs. its own 50-bar average (mirrors rs_ma in Python)
-float rs_ma       = ta.sma(rs_ratio, i_rs_ma_len)
+// Momentum entry signals (detect leading edge of new status)
+bool diamond_launch = mkt_status == "DIAMOND LAUNCH" and mkt_status[1] != "DIAMOND LAUNCH"
+bool squeeze_fire   = mkt_status == "SQUEEZE FIRE"   and mkt_status[1] != "SQUEEZE FIRE"
 
-// RS check: stock RS is above its own average → outperforming benchmark
-bool  rs_check    = rs_ratio > rs_ma
+// Full entry signal: momentum event AND VStop is green (confirms uptrend, Pillar 1)
+bool entry_signal = (diamond_launch or squeeze_fire) and vstop_up
 
-// =============================================================================
-// ── SECTION 6: DARVAS BOX / BOX BREAKOUT
-// Translated from: calculate_master_logic() — lines 76–79 of vstop_screener.py
-//
-// Python:
-//   box_high      = high.shift(1).rolling(box_lookback).max()
-//   box_low       = low.shift(1).rolling(box_lookback).min()
-//   box_width_pct = (box_high - box_low) / box_low * 100
-//
-// high[1] in Pine Script = yesterday's high (i.e., shift(1))
-// ta.highest(src, len) over high[1] → lookback of prior bars only.
-// =============================================================================
+// Exit: first bar of emergency slope stop being active (don't repeat every bar)
+bool emerg_exit = emerg_stop and not emerg_stop[1]
 
-float box_high      = ta.highest(high[1], i_box_lookback)
-float box_low       = ta.lowest (low[1],  i_box_lookback)
-float box_width_pct = (box_high - box_low) / box_low * 100
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 6 — STRATEGY EXECUTION  (Phase 2)
+// strategy.entry() on DIAMOND LAUNCH / SQUEEZE FIRE (+ VStop fallback)
+// strategy.close() on VStop Red or Emergency Slope Stop
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Box Breakout: close exceeds the prior-bar box ceiling
-bool  box_breakout  = close > box_high
+// Primary entries — DIAMOND LAUNCH and SQUEEZE FIRE
+if entry_signal
+    strategy.entry("Long", strategy.long,
+         comment = mkt_status == "DIAMOND LAUNCH" ? "💎 DIAMOND LAUNCH" : "🚀 SQUEEZE FIRE")
 
-// =============================================================================
-// ── SECTION 7: 7-DAY VOLUME SPIKE
-// Translated from: calculate_master_logic() — line 57 of vstop_screener.py
-//
-// Python:
-//   vol_avg          = volume.rolling(20).mean()
-//   vol_spike_last_7d= (volume > vol_avg * 1.5).rolling(7).max().astype(bool)
-//
-// ta.highest over a boolean (1/0) replicates .rolling(7).max()
-// =============================================================================
+// Structural entry — pure VStop Green (when no momentum signal is present)
+if vstop_buy and not entry_signal
+    strategy.entry("Long", strategy.long, comment = "▲ VStop Green")
 
-float vol_avg          = ta.sma(volume, i_vol_avg_len)
-float vol_multiple     = volume / vol_avg
-bool  vol_spike_now    = volume > vol_avg * i_vol_mult
+// Exits — VStop Red (primary, spec line 1 of sell signals)
+if vstop_sell
+    strategy.close("Long", comment = "🔴 VStop Red")
 
-// True if ANY bar in the last 7 had a volume spike (mirrors rolling max)
-bool  vol_spike_last_7 = ta.highest(vol_spike_now ? 1 : 0, i_vol_spike_wd) == 1
+// Exits — Emergency Slope Stop (override, spec line 2 of sell signals)
+if emerg_exit
+    strategy.close("Long", comment = "⚠️ Emergency Slope Stop")
 
-// =============================================================================
-// ── SECTION 8: PHASE 1 PLOTS
-// Basic plots for Phase 1 verification.
-// Full bar-coloring and dashboard table are implemented in Phase 3.
-// =============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 7 — PLOTS  (Phase 1 baseline + Phase 3 polish)
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ── VStop Line
+// VStop line — green when stop is below price (supporting long), red when above
+// This single line serves BOTH buy (support) and sell (resistance) roles
 color vstop_color = vstop_up ? color.new(color.lime, 0) : color.new(color.red, 0)
-plot(vstop_val, title = "VStop", color = vstop_color, linewidth = 2, style = plot.style_line)
+plot(vstop_val, "VStop",   vstop_color, linewidth = 2)
+plot(ema_fast,  "EMA 50",  color.new(color.orange, 0), linewidth = 1)
+plot(ema_slow,  "EMA 200", color.new(color.blue,   0), linewidth = 2)
 
-// ── EMA Lines
-plot(ema_fast_val, title = "EMA 50",  color = color.new(color.orange, 0), linewidth = 1)
-plot(ema_slow_val, title = "EMA 200", color = color.new(color.blue,   0), linewidth = 2)
+// Darvas Box boundary steplines
+plot(box_high, "Box High", color.new(color.teal,   55), linewidth = 1, style = plot.style_stepline)
+plot(box_low,  "Box Low",  color.new(color.purple, 55), linewidth = 1, style = plot.style_stepline)
 
-// ── Squeeze Dots (plotted on the zero line via a separate pane is conventional,
-//    but for overlay mode we mark them on the bar low for visibility)
-plotshape(sqz_xtra,  title = "Squeeze Extra Tight", location = location.belowbar,
-          style = shape.circle, color = color.new(color.red,    0), size = size.tiny)
-plotshape(sqz_tight and not sqz_xtra, title = "Squeeze Tight", location = location.belowbar,
-          style = shape.circle, color = color.new(color.orange, 0), size = size.tiny)
-plotshape(sqz_std   and not sqz_tight, title = "Squeeze Standard", location = location.belowbar,
-          style = shape.circle, color = color.new(color.yellow, 0), size = size.tiny)
-plotshape(sqz_fired, title = "Squeeze Fired 🚀", location = location.belowbar,
-          style = shape.labelup, color = color.new(color.fuchsia, 0), size = size.small,
-          text = "🚀", textcolor = color.white)
+// Squeeze intensity dots on bar low (Phase 1 + Phase 3)
+plotshape(sqz_xtr,                    "Sqz Extra Tight", shape.circle,  location.belowbar, color.new(color.red,     0), size = size.tiny)
+plotshape(sqz_tgt and not sqz_xtr,   "Sqz Tight",       shape.circle,  location.belowbar, color.new(color.orange,  0), size = size.tiny)
+plotshape(sqz_std  and not sqz_tgt,  "Sqz Standard",    shape.circle,  location.belowbar, color.new(color.yellow,  0), size = size.tiny)
 
-// ── Box High/Low Lines
-plot(box_high, title = "Box High", color = color.new(color.teal,   60), linewidth = 1, style = plot.style_stepline)
-plot(box_low,  title = "Box Low",  color = color.new(color.purple, 60), linewidth = 1, style = plot.style_stepline)
+// Squeeze Fired marker
+plotshape(sqz_fired, "Sqz Fired 🚀", shape.labelup, location.belowbar,
+     color.new(color.fuchsia, 0), size = size.small, text = "🚀", textcolor = color.white)
 
-// =============================================================================
-// ── SECTION 9: TOOLTIP / DATA WINDOW OUTPUTS
-// Makes all computed values visible in the TradingView Data Window panel.
-// =============================================================================
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 8 — VISUALIZATION: BAR COLORS & SQUEEZE BACKGROUND  (Phase 3)
+// ─────────────────────────────────────────────────────────────────────────────
 
-plot(ema200_slope,     title = "EMA 200 Slope %",   display = display.data_window)
-plot(rs_ratio,         title = "RS Ratio",           display = display.data_window)
-plot(rs_ma,            title = "RS MA (50)",         display = display.data_window)
-plot(box_width_pct,    title = "Box Width %",        display = display.data_window)
-plot(vol_multiple,     title = "Volume Multiple",    display = display.data_window)
-plot(vstop_dist_pct,   title = "VStop Distance %",  display = display.data_window)
+// Bar color by market lifecycle status (matches Python status_order ranking)
+color bar_col =
+     mkt_status == "DIAMOND LAUNCH" ? color.new(#FFD700, 10) :  // Gold
+     mkt_status == "SQUEEZE FIRE"   ? color.new(#FF00FF, 15) :  // Magenta
+     mkt_status == "COILING"        ? color.new(#00CED1, 20) :  // Dark Teal
+     mkt_status == "TRENDING"       ? color.new(#00C853, 20) :  // Bright Green
+     na
 
-// =============================================================================
-// Phase 2 (Strategy Logic & MTF) and Phase 3 (Visualization & Dashboard)
-// are implemented in subsequent commits per the implementation plan.
-// =============================================================================
+barcolor(i_show_barc ? bar_col : na, title = "Bar Color by Status")
+
+// Squeeze background — intensity gradient (deepest red = tightest squeeze)
+color bg_col =
+     sqz_xtr ? color.new(color.red,    90) :
+     sqz_tgt ? color.new(color.orange, 92) :
+     sqz_std ? color.new(color.yellow, 94) : na
+
+bgcolor(i_show_bg ? bg_col : na, title = "Squeeze Background")
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 9 — SIGNAL LABELS  (Phase 3)
+// Buy labels above bar; sell labels below. Triggered on signal edge only.
+// ─────────────────────────────────────────────────────────────────────────────
+
+if i_show_lbl
+    // ── BUY labels ──────────────────────────────────────────────────────────
+
+    if diamond_launch and vstop_up
+        label.new(bar_index, high,
+             "💎 DIAMOND\nLAUNCH",
+             color     = color.new(#FFD700, 5),
+             textcolor = color.black,
+             style     = label.style_label_up,
+             size      = size.normal)
+
+    if squeeze_fire and vstop_up and not diamond_launch
+        label.new(bar_index, high,
+             "🚀 SQUEEZE\nFIRE",
+             color     = color.new(#FF00FF, 10),
+             textcolor = color.white,
+             style     = label.style_label_up,
+             size      = size.normal)
+
+    if vstop_buy and not (diamond_launch or squeeze_fire)
+        label.new(bar_index, low,
+             "▲ VStop\nGreen",
+             color     = color.new(color.lime, 20),
+             textcolor = color.black,
+             style     = label.style_label_up,
+             size      = size.small)
+
+    // ── SELL labels ─────────────────────────────────────────────────────────
+
+    // VStop Red — primary exit trigger
+    if vstop_sell
+        label.new(bar_index, high,
+             "🔴 VStop\nRed",
+             color     = color.new(color.red, 5),
+             textcolor = color.white,
+             style     = label.style_label_down,
+             size      = size.small)
+
+    // Emergency Slope Stop — override exit
+    if emerg_exit
+        label.new(bar_index, high,
+             "⚠️ Emergency\nSlope Stop",
+             color     = color.new(color.maroon, 5),
+             textcolor = color.white,
+             style     = label.style_label_down,
+             size      = size.normal)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 10 — DASHBOARD TABLE  (Phase 3)
+// Top-right on-chart table: Status, VStop, EMA200 Slope, RS, Squeeze,
+// Box Width, VStop Distance, Volume Spike 7d, Emergency Stop flag.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Table helper colors
+f_row_bg()        => color.new(#1c1c2e, 5)
+f_hdr_bg()        => color.new(#0a0a1a, 10)
+f_status_bg(s)    =>
+     s == "DIAMOND LAUNCH" ? color.new(#FFD700, 20) :
+     s == "SQUEEZE FIRE"   ? color.new(#FF00FF, 25) :
+     s == "COILING"        ? color.new(#00CED1, 30) :
+     s == "TRENDING"       ? color.new(#00C853, 30) :
+     color.new(color.gray, 60)
+f_sqz_bg(std, tgt, xtr, frd) =>
+     xtr ? color.new(color.red,     45) :
+     tgt ? color.new(color.orange,  45) :
+     std ? color.new(color.yellow,  45) :
+     frd ? color.new(color.fuchsia, 45) :
+     f_row_bg()
+
+var table dash = table.new(
+     position.top_right, 2, 11,
+     border_width = 1,
+     border_color = color.new(color.gray, 45),
+     bgcolor      = color.new(#080814, 10))
+
+if i_show_tbl and barstate.islast
+    string tf_label = str.length(i_mtf) > 0 ? "MTF: " + i_mtf : timeframe.period
+
+    // Row 0 — Title header
+    table.cell(dash, 0, 0, "THE KEYMAKER",
+         text_color = color.white, bgcolor = f_hdr_bg(),
+         text_size  = size.small,  text_halign = text.align_center)
+    table.cell(dash, 1, 0, tf_label,
+         text_color = color.yellow, bgcolor = f_hdr_bg(),
+         text_size  = size.small,   text_halign = text.align_center)
+
+    // Row 1 — Market Status
+    table.cell(dash, 0, 1, "Status",
+         text_color = color.white, bgcolor = f_row_bg(), text_size = size.small)
+    table.cell(dash, 1, 1, mkt_status,
+         text_color  = mkt_status == "DIAMOND LAUNCH" ? color.black : color.white,
+         bgcolor     = f_status_bg(mkt_status),
+         text_size   = size.small, text_halign = text.align_center)
+
+    // Row 2 — VStop direction
+    table.cell(dash, 0, 2, "VStop",
+         text_color = color.white, bgcolor = f_row_bg(), text_size = size.small)
+    table.cell(dash, 1, 2, vstop_up ? "🟢 Bull" : "🔴 Bear",
+         text_color  = vstop_up ? color.lime : color.red,
+         bgcolor     = f_row_bg(), text_size = size.small, text_halign = text.align_center)
+
+    // Row 3 — EMA 200 Slope
+    table.cell(dash, 0, 3, "EMA200 Slope",
+         text_color = color.white, bgcolor = f_row_bg(), text_size = size.small)
+    table.cell(dash, 1, 3, str.tostring(ema200_slope, "#.##") + "%",
+         text_color  = slope_pos ? color.lime : color.red,
+         bgcolor     = f_row_bg(), text_size = size.small, text_halign = text.align_right)
+
+    // Row 4 — RS Ratio
+    table.cell(dash, 0, 4, "RS Ratio",
+         text_color = color.white, bgcolor = f_row_bg(), text_size = size.small)
+    table.cell(dash, 1, 4, str.tostring(rs_ratio, "#.####") + (rs_ok ? " ✓" : " ✗"),
+         text_color  = rs_ok ? color.lime : color.red,
+         bgcolor     = f_row_bg(), text_size = size.small, text_halign = text.align_right)
+
+    // Row 5 — EMA Filter (close > EMA50 & EMA200)
+    table.cell(dash, 0, 5, "EMA Filter",
+         text_color = color.white, bgcolor = f_row_bg(), text_size = size.small)
+    table.cell(dash, 1, 5, ema_check ? "✓ Above Both" : "✗ Below EMA",
+         text_color  = ema_check ? color.lime : color.red,
+         bgcolor     = f_row_bg(), text_size = size.small, text_halign = text.align_center)
+
+    // Row 6 — Squeeze State
+    table.cell(dash, 0, 6, "Squeeze",
+         text_color = color.white, bgcolor = f_row_bg(), text_size = size.small)
+    table.cell(dash, 1, 6, sqz_label,
+         text_color  = (sqz_std or sqz_fired) ? color.black : color.white,
+         bgcolor     = f_sqz_bg(sqz_std, sqz_tgt, sqz_xtr, sqz_fired),
+         text_size   = size.small, text_halign = text.align_center)
+
+    // Row 7 — Box Width & Breakout
+    table.cell(dash, 0, 7, "Box Width",
+         text_color = color.white, bgcolor = f_row_bg(), text_size = size.small)
+    table.cell(dash, 1, 7, str.tostring(box_width, "#.##") + "%" + (box_brk ? " 🔥" : ""),
+         text_color  = box_brk ? color.lime : color.white,
+         bgcolor     = f_row_bg(), text_size = size.small, text_halign = text.align_right)
+
+    // Row 8 — VStop Distance %
+    table.cell(dash, 0, 8, "VStop Dist",
+         text_color = color.white, bgcolor = f_row_bg(), text_size = size.small)
+    table.cell(dash, 1, 8, str.tostring(vstop_dist, "#.##") + "%",
+         text_color  = vstop_dist > 0 ? color.lime : color.red,
+         bgcolor     = f_row_bg(), text_size = size.small, text_halign = text.align_right)
+
+    // Row 9 — Volume Spike 7d
+    table.cell(dash, 0, 9, "Vol Spike 7d",
+         text_color = color.white, bgcolor = f_row_bg(), text_size = size.small)
+    table.cell(dash, 1, 9, vol_spike_7d ? "⚡ YES" : "No",
+         text_color  = vol_spike_7d ? color.lime : color.white,
+         bgcolor     = f_row_bg(), text_size = size.small, text_halign = text.align_center)
+
+    // Row 10 — Emergency Slope Stop
+    table.cell(dash, 0, 10, "Slope Stop",
+         text_color = color.white, bgcolor = f_row_bg(), text_size = size.small)
+    table.cell(dash, 1, 10, emerg_stop ? "⚠️ ACTIVE" : "Safe",
+         text_color  = emerg_stop ? color.red : color.lime,
+         bgcolor     = f_row_bg(), text_size = size.small, text_halign = text.align_center)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 11 — DATA WINDOW OUTPUTS
+// All computed values visible in TradingView Data Window panel.
+// ─────────────────────────────────────────────────────────────────────────────
+
+plot(ema200_slope, "EMA 200 Slope %",  display = display.data_window)
+plot(rs_ratio,     "RS Ratio",         display = display.data_window)
+plot(rs_ma_val,    "RS MA (50)",       display = display.data_window)
+plot(box_width,    "Box Width %",      display = display.data_window)
+plot(vol_multiple, "Volume Multiple",  display = display.data_window)
+plot(vstop_dist,   "VStop Distance %", display = display.data_window)
