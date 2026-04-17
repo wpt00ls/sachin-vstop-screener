@@ -16,6 +16,10 @@
 
 ## Execution Model
 - **Concurrent.futures (ThreadPoolExecutor)**: Used to speed up the data fetching and auditing process by running ticker-level scans in parallel.
+## Chart Strategy & Scripting
+- **Pine Script v6**: Used to implement the "Four Pillars" multi-bagger strategy as a TradingView strategy script (`/scripts/pinescript/`). Enables interactive chart visualization, multi-timeframe analysis, and integrated backtesting within TradingView.
+  - *Added: 2026-04-17 — pinescript_implementation_20260416 track*
+
 ## Testing Framework
 - **Pytest**: Used for unit and integration testing of core indicators and execution logic.
 - **Pytest-cov**: Utilized for monitoring and ensuring high code coverage (>80%).

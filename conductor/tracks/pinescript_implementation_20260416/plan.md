@@ -1,12 +1,12 @@
 # Implementation Plan: The KeyMaker Pine Script (v6)
 
 ## Phase 1: Core Indicator Implementation
-- [ ] Task: Implement Recursive VStop logic (3.0 ATR multiplier) in Pine Script v6.
-- [ ] Task: Implement Squeeze Pro logic (Standard, Tight, Extra Tight) using BB and Keltner Channels.
-- [ ] Task: Implement EMA 200 Slope (20-day % change) and EMA 50/200 plots.
-- [ ] Task: Implement RS Ratio (vs. Benchmark) and RS vs. Avg indicators.
-- [ ] Task: Implement Darvas Box / Box Breakout lookback logic.
-- [ ] Task: Implement 7-day Volume Spike lookback condition.
+- [~] Task: Implement Recursive VStop logic (3.0 ATR multiplier) in Pine Script v6.
+- [~] Task: Implement Squeeze Pro logic (Standard, Tight, Extra Tight) using BB and Keltner Channels.
+- [~] Task: Implement EMA 200 Slope (20-day % change) and EMA 50/200 plots.
+- [~] Task: Implement RS Ratio (vs. Benchmark) and RS vs. Avg indicators.
+- [~] Task: Implement Darvas Box / Box Breakout lookback logic.
+- [~] Task: Implement 7-day Volume Spike lookback condition.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Core Indicator Implementation' (Protocol in workflow.md)
 
 ## Phase 2: Strategy Logic & MTF Support
